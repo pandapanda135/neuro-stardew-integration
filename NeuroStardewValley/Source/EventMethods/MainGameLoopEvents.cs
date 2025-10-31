@@ -30,7 +30,7 @@ public static class MainGameLoopEvents
 		pathing.BuildCollisionMap(Main.Bot._currentLocation);
 
 		if (e.Player.passedOut || Game1.eventUp) return;
-		string warps = TileContext.GetWarpTiles(e.NewLocation,true);
+		string warps = TileContext.GetWarpTiles(e.NewLocation,true,true);
 		string warpsString = !string.IsNullOrEmpty(warps) ? TileContext.GetWarpTilesString(warps) : "There are no warps in this location";
 		
 		string characterContext = string.Concat(Main.Bot.Characters.GetCharactersInCurrentLocation(e.NewLocation)

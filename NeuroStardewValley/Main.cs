@@ -108,6 +108,9 @@ internal sealed class Main : Mod
                 MouseState mouseState = Game1.input.GetMouseState();
                 Logger.Info($"mouse state: {mouseState}");
                 Logger.Info($"{new Vector2((int)((Utility.ModifyCoordinateFromUIScale(mouseState.X) + Game1.viewport.X) / 64f), (int)((Utility.ModifyCoordinateFromUIScale(mouseState.Y) + Game1.viewport.Y) / 64f))}");
+                string[] action = ArgUtility.SplitBySpace(Main.Bot._currentLocation.doesTileHaveProperty(
+                    (int)Game1.currentCursorTile.X, (int)Game1.currentCursorTile.Y, "Action", "Buildings"));
+                Logger.Info($"tile action: {string.Join(" ", action)}");
                 break;
             case SButton.R:
                 foreach (var building in Game1.currentLocation.buildings)

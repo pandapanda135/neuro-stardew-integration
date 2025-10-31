@@ -107,7 +107,7 @@ public static class PathFindingActions
             Required = new List<string> { "exit" },
             Properties = new Dictionary<string, JsonSchema>
             {
-                ["exit"] = QJS.Enum(TileContext.GetWarpTilesStrings(TileContext.GetWarpTiles(Main.Bot._currentLocation,true))),
+                ["exit"] = QJS.Enum(TileContext.GetWarpTilesStrings(TileContext.GetWarpTiles(Main.Bot._currentLocation,true,true))),
                 ["destructive"] = QJS.Type(JsonSchemaType.Boolean)
             }
         };
@@ -125,13 +125,19 @@ public static class PathFindingActions
                 Logger.Error($"data or yData is null");
                 return ExecutionResult.Failure($"A value you gave was null");
             }
+
+            if (!TileContext.GetWarpTilesStrings(TileContext.GetWarpTiles(Main.Bot._currentLocation,
+                        true, true)).Contains(pointStr))
+            {
+                return ExecutionResult.Failure($"{pointStr} is not a valid exit.");
+            }
             
             string[] splitName = pointStr.Split(":");
             string[] coords = splitName[1].Split(',');
 
             Point exitPoint = new Point(int.Parse(coords[0]), int.Parse(coords[1]));
 
-            if (!TileContext.GetWarpsAsPoint(TileContext.GetWarpTiles(Main.Bot._currentLocation,true)).ContainsKey(exitPoint))
+            if (!TileContext.GetWarpsAsPoint(TileContext.GetWarpTiles(Main.Bot._currentLocation,true,true)).ContainsKey(exitPoint))
             { 
                 return ExecutionResult.Failure($"The provided tile is not an exit");
             }
@@ -143,7 +149,7 @@ public static class PathFindingActions
                 return ExecutionResult.Failure($"The value was either less than 0 or greater than the size of the map. If you were provided this position by the game, it is an issue with the mod.");
             }
 
-            // if exit point is part of building
+            // if exit point is part of building and close to warp
             if (Utility.tileWithinRadiusOfPlayer(exitPoint.X, exitPoint.Y, 1, Main.Bot._farmer)
                 && !TileContext.GetWarpsAsPoint(TileContext.GetWarpTiles(Main.Bot._currentLocation))
                     .ContainsKey(exitPoint))
@@ -152,20 +158,22 @@ public static class PathFindingActions
                 return ExecutionResult.Success($"Entering {exitPoint}");
             }
             
-            Main.Bot.Pathfinding.BuildCollisionMapInRadius(exitPoint,3);
-            if (Main.Bot.Pathfinding.IsBlocked(exitPoint.X, exitPoint.Y) && (bool)!destructive)
-            {
-                return ExecutionResult.Failure("You gave a position that is blocked. Maybe try something else!");
-            }
+            // the exit point should never be blocked I don't know what I was thinking about here
+            // Main.Bot.Pathfinding.BuildCollisionMapInRadius(exitPoint,3);
+            // if (Main.Bot.Pathfinding.IsBlocked(exitPoint.X, exitPoint.Y) && (bool)!destructive)
+            // {
+            //     return ExecutionResult.Failure("You gave a position that is blocked. Maybe try something else!");
+            // }
 
             AlgorithmBase.IPathing pathing = new AStar.Pathing();
             if (pathing.FindPath(new PathNode(Main.Bot._farmer.TilePoint.X, Main.Bot._farmer.TilePoint.Y, null),
-                    new Goal.GoalPosition(exitPoint.X, exitPoint.Y), Game1.currentLocation, 10000,_destructive).Result.Count == 0)
+                    new Goal.GetToTile(exitPoint.X, exitPoint.Y), Main.Bot._currentLocation, 10000,_destructive).Result.Count == 0
+                && !Graph.IsInNeighbours(Main.Bot._farmer.TilePoint,exitPoint,out _,4))
             {
                 return ExecutionResult.Failure("You cannot make it to this exit, you should try something else.");
             }
 
-            goal = new Goal.GoalPosition(exitPoint.X,exitPoint.Y);
+            goal = new Goal.GetToTile(exitPoint.X,exitPoint.Y);
             _destructive = (bool)destructive;
             _oldLocation = Main.Bot._currentLocation;
             return ExecutionResult.Success($"Going to {goal.VectorLocation}");
@@ -192,18 +200,28 @@ public static class PathFindingActions
                     await Main.Bot.Pathfinding.Goto(goal, _destructive);
                     await TaskDispatcher.SwitchToMainThread();
 
-                    // probably don't need to do lower checks if these are different
+                    // probably don't need to do lower checks if location changes
                     if (!Main.Bot._currentLocation.Equals(_oldLocation)) return;
                 }
 
-                // pathfinding can't go within 1 tile of current position so we do this.
+                // pathfinding can't go within 1 tile of current position so we do this. People probably won't notice.
                 if (building is null)
                 {
+                    Logger.Info($"building is null");
                     List<Warp> warps = Main.Bot._currentLocation.warps.Where(warp => warp.X == goal.X && warp.Y == goal.Y)
                         .ToList();
-                    if (!warps.Any()) return;
-                    var warp = warps[0];
+                    Warp? doorWarp = Main.Bot._currentLocation.getWarpFromDoor(goal.VectorLocation,Main.Bot._farmer);
 
+                    if (!warps.Any() && doorWarp is null)
+                    {
+                        Logger.Error($"No warp at: {goal.VectorLocation}");
+                        RegisterMainActions.RegisterPostAction();
+                        return;
+                    }
+
+                    var warp = doorWarp;
+                    if (doorWarp is null) warp = warps[0];
+                    
                     Main.Bot._farmer.warpFarmer(warp);
                 
                     // warps can take a second to register sometimes

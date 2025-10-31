@@ -20,7 +20,7 @@ public static class RegisterDialogueActions
 			if (dialogueBox.responses.Length > 0)
 			{
 				window.AddAction(new DialogueActions.DialogueResponse());				
-				stateString = $"The possible responses are \n";
+				stateString = $"These are the possible responses:\n";
 				for (int i = 0; i < dialogueBox.responses.Length; i++)
 				{
 					stateString += $"{i}: {dialogueBox.responses[i].responseText} \n";	
@@ -42,6 +42,8 @@ public static class RegisterDialogueActions
 				{
 					stateString = $"The current dialogue is {dialogueBox.getCurrentString()}";
 				}
+				
+				stateString = $"This is the dialogue: \"{stateString}\"";
 			}
 
 			int delayMs = (int)Math.Ceiling(0.04f * dialogueBox.getCurrentString().Length * 1000f);
@@ -53,7 +55,7 @@ public static class RegisterDialogueActions
 				{
 					query += $" With {Main.Bot.Dialogue.CurrentDialogueBox?.characterDialogue.speaker.displayName}";
 				}
-				window.SetForce(0, query, $"This is the dialogue: \"{stateString}\"");
+				window.SetForce(0, query, stateString);
 				window.Register();
 			}, delayMs + 2000); // add two for reading if typewriter
 		}

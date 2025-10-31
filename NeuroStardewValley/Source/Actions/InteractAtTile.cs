@@ -105,12 +105,15 @@ public class InteractAtTile : NeuroAction<Point>
 		
 		// In case whatever is at the tile leads to getting teleported or making menu
 		GameLocation oldLocation = Main.Bot._currentLocation;
-		IClickableMenu oldMenu = Game1.activeClickableMenu;
+		IClickableMenu? oldMenu = Game1.activeClickableMenu;
+		// TODO: this does not account for entering new menu then changing back to old where actions may be registered. I've lowered delay to where I assume Neuro can't cause such an issue.
 		DelayedAction.functionAfterDelay(() =>
 		{
-			if (!Main.Bot._currentLocation.Equals(oldLocation) || !Game1.activeClickableMenu.Equals(oldMenu)) return;
+			// active menu being null causes errors with Equals so we need to check
+			if (!Main.Bot._currentLocation.Equals(oldLocation) ||
+			    (Game1.activeClickableMenu is not null && !Game1.activeClickableMenu.Equals(oldMenu))) return;
 			RegisterMainActions.RegisterPostAction();
-		}, 1000);
+		}, 500);
 	}
 	
 	private static object? GetLocationObjects(Point point)

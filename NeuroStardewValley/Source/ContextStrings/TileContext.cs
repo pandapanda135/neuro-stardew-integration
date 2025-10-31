@@ -79,21 +79,8 @@ public static class TileContext
                             tileList.Add(tileString);
                             continue;
                         }
-                        
-                        switch (action[0])
-                        {
-                            case "Dialogue":
-                            case "Message":
-                            case "MessageOnce":
-                            case "NPCMessage":
-                            case "MessageSpeech":
-                                tileList.Add(tileString);
-                                continue;
-                            case "Letter":
-                                tileList.Add(action[0]);
-                                continue;
-                        }
-                        tileString += $": {string.Join(" ", action)}";
+
+                        tileList.Add(GetActionName(action));
                     }
                     tileList.Add(tileString);
                     continue;
@@ -158,26 +145,8 @@ public static class TileContext
                     
                     ActionableTiles.Add(new Point(x, y));
                     string[] action = ArgUtility.SplitBySpace(Main.Bot._currentLocation.doesTileHaveProperty(x, y, "Action", "Buildings"));
-                    if (action.Length < 1)
-                    {
-                        objectTiles.Add(new Point(x,y),"Action");
-                        continue;
-                    }
                     
-                    Logger.Error($"action 0: {action[0]}");
-                    switch (action[0])
-                    {
-                        
-                        case "Dialogue":
-                        case "Message":
-                        case "MessageOnce":
-                        case "NPCMessage":
-                        case "MessageSpeech":
-                        case "Letter":
-                            objectTiles.Add(new Point(x,y),action[0]);
-                            continue;
-                    }
-                    objectTiles.Add(new Point(x,y),"Action");
+                    objectTiles.Add(new Point(x,y),GetActionName(action, "Action"));
                     continue;
                 }
                 object? tileObj = TileUtilities.GetTileType(location, new Point(x, y));
@@ -271,6 +240,44 @@ public static class TileContext
         return name;
     }
 
+    /// <param name="action">string array for action, if this is empty or not a specific action will return default return</param>
+    /// <param name="defaultReturnString">This will be returned if the conditions above are true, if this not set it will be string array as a string</param>
+    /// <returns>either action[0] or defaultReturnString</returns>
+    public static string GetActionName(string[] action, string defaultReturnString = "")
+    {
+        if (action.Length < 1)
+        {
+            return defaultReturnString.Length == 0 ? string.Join(" ",action) : defaultReturnString;
+        }
+
+        // this is for stuff like blacksmith and animalshop ugly solution, but it works.
+        if (action[0] == Main.Bot._currentLocation.Name)
+        {
+            return action[0];
+        }
+        
+        switch (action[0])
+        {
+            case "Dialogue":
+            case "Message":
+            case "MessageOnce":
+            case "NPCMessage":
+            case "MessageSpeech":
+            case "Letter":
+            // this opens shops
+            case "Buy":
+                return action[0];
+            case "LockedDoorWarp":
+                // this is the warp's target
+                return action[3];
+        }
+
+        // some warps e.g. community center will be called CommunityCenterWarp 
+        if (action[0].ToLower().Contains("enter") || action[0].ToLower().Contains("warp")) return action[0];
+
+        return defaultReturnString.Length == 0 ? string.Join(" ",action) : defaultReturnString;
+    }
+
     private static string? GetObjectContext(object obj,int x,int y)
     {
         switch (obj)
@@ -349,12 +356,39 @@ public static class TileContext
         return str;
     }
 
-    public static string GetWarpTiles(GameLocation location,bool addBuildings = false)
+    public static string GetWarpTiles(GameLocation location,bool addBuildings = false,bool addActionTile = false)
     {
         location.TryGetMapProperty("Warp", out var warps);
-        if (!addBuildings) return warps;
+        if (addBuildings) warps += GetBuildingWarps(location);
+        
+        if (addActionTile) warps += GetActionTileWarps(location);
+        
+        return warps;
+    }
 
-        warps += GetBuildingWarps(location);
+    private static string GetActionTileWarps(GameLocation location, bool includeClosedDoors = false)
+    {
+        string warps = "";
+        for (int x = 0; x < location.Map.DisplayWidth / 64; x++)
+        {
+            for (int y = 0; y < location.map.DisplayHeight / 64; y++)
+            {
+                if (!location.isActionableTile(x,y,Main.Bot._farmer)) continue;
+                
+                string[] action = ArgUtility.SplitBySpace(Main.Bot._currentLocation.doesTileHaveProperty(x, y, "Action", "Buildings"));
+
+                // some actions are called warps with no coordinates e.g. WarpCommunityCenter
+                if (action.Length < 5) continue;
+                // surely this covers all warps
+                if (!action[0].ToLower().Contains("warp")) continue;
+                
+                // 4 should contain opening time
+                if (!includeClosedDoors && int.Parse(action[4]) > Game1.timeOfDay) continue;
+                
+                warps += $" {x} {y} {action[3]} {action[1]} {action[2]}";
+            }
+        }
+
         return warps;
     }
 
@@ -367,6 +401,7 @@ public static class TileContext
             if (!building.HasIndoors() || building.getPointForHumanDoor() == new Point(-1,-1)) continue;
             
             door.Inflate(128,128); // adjust by two tiles as warp teleport location typically a few tiles away from entrance
+            // these are the warps inside the building
             foreach (var warp in building.GetIndoors().warps.Where(warp => door.Contains(new Vector2(warp.TargetX,warp.TargetY) * 64))) 
             {
                 warps += $" {warp.TargetX} {warp.TargetY} {building.GetIndoors().Name} {warp.X} {warp.Y}";
@@ -398,11 +433,13 @@ public static class TileContext
 
         return warpLocation.Aggregate("", (current, kvp) => current + $"\n{kvp.Value}: {kvp.Key}");
     }
-
+    
+    /// <returns>"name: X tile,Y tile"</returns>
     public static List<string> GetWarpTilesStrings(string warpTiles)
     {
         var warpLocation = GetWarpsAsPoint(warpTiles);
 
+        
         return warpLocation.Select(kvp => $"{kvp.Value}: {kvp.Key.X},{kvp.Key.Y}").ToList();
     }
 }
