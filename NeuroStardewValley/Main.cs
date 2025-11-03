@@ -146,6 +146,7 @@ internal sealed class Main : Mod
             throw;
         }
     }
+    private int _mainMenuTimer;
     
     private static bool _hasSentCharacter;
     
@@ -176,12 +177,22 @@ internal sealed class Main : Mod
             _registerTimer = 0;
             RegisterMainActions.RegisterPostAction();
         }
-        
-        if (Game1.activeClickableMenu is not TitleMenu) return;
+
+        if (Game1.activeClickableMenu is not TitleMenu || Game1.currentGameTime is null)
+        {
+            _mainMenuTimer = 0;
+            return;
+        }
+
+        if (_mainMenuTimer < 5000)
+        {
+            _mainMenuTimer += Game1.currentGameTime.ElapsedGameTime.Milliseconds;
+            return;
+        }
         
         Bot.MainMenuNavigation.SetTitleMenu((TitleMenu)Game1.activeClickableMenu);
 
-        // load game 
+        // load game
         if (!Config.AllowCharacterCreation)
         {
             Bot.MainMenuNavigation.GotoLoad();
@@ -193,7 +204,7 @@ internal sealed class Main : Mod
             }
         }
 
-        if (_hasSentCharacter || !Config.AllowCharacterCreation) return;
+        if (TitleMenu.subMenu is not null || _hasSentCharacter || !Config.AllowCharacterCreation) return;
         
         Bot.MainMenuNavigation.GotoCreateNewCharacter();
 
