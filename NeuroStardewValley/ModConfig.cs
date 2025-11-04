@@ -1,3 +1,5 @@
+using StardewModdingAPI.Utilities;
+
 namespace NeuroStardewValley;
 
 public class ModConfig
@@ -21,6 +23,9 @@ public class ModConfig
     public int MaxQueryRange { get; set; } = 100;
     // for actions that have both a rectangle and range variant this will register the range version if true.
     public bool UseRange { get; set; } = true;
+    
+    // Stop main menu automation keybind, These are the valid keys: https://stardewvalleywiki.com/Modding:Player_Guide/Key_Bindings
+    public KeybindList MainMenuAutomation { get; set; } = KeybindList.Parse("F");
     public Dictionary<string, bool> CharacterCreationOptions { get; set; } = new()
     {
         { "skin", true },

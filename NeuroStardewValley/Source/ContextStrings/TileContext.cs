@@ -164,7 +164,7 @@ public static class TileContext
                         continue;
                     }
                     
-                    Logger.Error($"action 0: {action[0]}");
+                    Logger.Error($"action: {string.Join(" ",action)}");
                     switch (action[0])
                     {
                         

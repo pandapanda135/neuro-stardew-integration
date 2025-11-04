@@ -94,7 +94,7 @@ public class CraftingActions
 		{
 			for (int i = 0; i < Main.Bot.CraftingMenu.GetAllItems().Count; i++) // change page
 			{
-				if (!Main.Bot.CraftingMenu.GetAllItems()[i].Values.Contains(resultData.Key)) continue;
+				if (!Main.Bot.CraftingMenu.GetAllItems()[i].ContainsValue(resultData.Key)) continue;
 				
 				if (i == Main.Bot.CraftingMenu.CurrentPage) break;
 

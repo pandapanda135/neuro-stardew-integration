@@ -26,8 +26,7 @@ public static class MainGameLoopEvents
 	{
 		TileContext.ActionableTiles.Clear();
 		AlgorithmBase.IPathing.CollisionMap.Clear();
-		AlgorithmBase.IPathing pathing = new AStar.Pathing();
-		pathing.BuildCollisionMap(Main.Bot._currentLocation);
+		Main.Bot.Pathfinding.BuildCollisionMap();
 
 		if (e.Player.passedOut || Game1.eventUp) return;
 		string warps = TileContext.GetWarpTiles(e.NewLocation,true);

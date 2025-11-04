@@ -147,6 +147,7 @@ internal sealed class Main : Mod
         }
     }
     private int _mainMenuTimer;
+    private static bool _blockAutomation;
     
     private static bool _hasSentCharacter;
     
@@ -177,6 +178,8 @@ internal sealed class Main : Mod
             _registerTimer = 0;
             RegisterMainActions.RegisterPostAction();
         }
+        
+        if (_blockAutomation) return;
 
         if (Game1.activeClickableMenu is not TitleMenu || Game1.currentGameTime is null)
         {
@@ -187,6 +190,10 @@ internal sealed class Main : Mod
         if (_mainMenuTimer < 5000)
         {
             _mainMenuTimer += Game1.currentGameTime.ElapsedGameTime.Milliseconds;
+            if (!Config.MainMenuAutomation.IsDown()) return;
+            
+            Logger.Info($"You have blocked main menu automation");
+            _blockAutomation = true;
             return;
         }
         
