@@ -119,10 +119,8 @@ internal sealed class Main : Mod
 
                 break;
             case SButton.U:
-                bool result = Bot._currentLocation.isActionableTile((int)Game1.currentCursorTile.X,
-                    (int)Game1.currentCursorTile.Y,
-                    Game1.player);
-                Logger.Warning($"is action: {result}");
+                string[] action = ArgUtility.SplitBySpace(Bot._currentLocation.doesTileHaveProperty((int)Game1.currentCursorTile.X, (int)Game1.currentCursorTile.Y, "Action", "Buildings"));
+                Logger.Warning($"is action: {Game1.isActionAtCurrentCursorTile}    {string.Join(" ",action)}");
                 break;
             case SButton.V:
                 Logger.Info($"update levels");
