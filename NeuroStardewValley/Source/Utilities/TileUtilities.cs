@@ -1,6 +1,8 @@
 using Microsoft.Xna.Framework;
+using NeuroStardewValley.Source.ContextStrings;
 using StardewBotFramework.Source.Modules.Pathfinding.Base;
 using StardewValley;
+using Object = StardewValley.Object;
 
 namespace NeuroStardewValley.Source.Utilities;
 
@@ -70,5 +72,18 @@ public static class TileUtilities
 		}
         
 		return null;
+	}
+
+	public static Object? GetClosestObjectId(string itemId, Vector2 startPoint)
+	{
+		PriorityQueue<Object,int> points = new();
+		foreach (var kvp in TileContext.GetObjectsInLocation(Main.Bot._currentLocation))
+		{
+			if (kvp.Value is not Object obj || obj.ItemId != itemId) continue;
+			points.Enqueue(obj,(int)Vector2.Distance(startPoint, obj.TileLocation));
+		}
+
+		points.TryDequeue(out Object? element, out _);
+		return element;
 	}
 }

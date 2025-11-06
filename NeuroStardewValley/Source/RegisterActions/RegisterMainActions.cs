@@ -140,7 +140,12 @@ public static class RegisterMainActions
 			case Farm farm:
 				if (farm.buildings.Any(building => building.GetType() == typeof(ShippingBin)))
 				{
-					window.AddAction(new ShippingBinActions.GoToNearestShippingBin());
+					window.AddAction(new UseShippingBin());
+				}
+
+				if (farm.Objects.Values.Any(obj => obj.GetMachineData() != null))
+				{
+					window.AddAction(new UseMachine());
 				}
 
 				break;
