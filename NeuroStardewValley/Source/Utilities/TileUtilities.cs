@@ -2,6 +2,7 @@ using Microsoft.Xna.Framework;
 using NeuroStardewValley.Source.ContextStrings;
 using StardewBotFramework.Source.Modules.Pathfinding.Base;
 using StardewValley;
+using StardewValley.Buildings;
 using Object = StardewValley.Object;
 
 namespace NeuroStardewValley.Source.Utilities;
@@ -85,5 +86,19 @@ public static class TileUtilities
 
 		points.TryDequeue(out Object? element, out _);
 		return element;
+	}
+
+	/// <summary>
+	/// Get the tile building at the provided tile.
+	/// </summary>
+	/// <param name="tile">The tile location</param>
+	public static Building? BuildingContainsTile(Point tile)
+	{
+		return Main.Bot._currentLocation.getBuildingAt(tile.ToVector2());
+	}
+
+	public static bool Actionable(Point tile)
+	{
+		return Main.Bot._currentLocation.isActionableTile(tile.X, tile.Y, Main.Bot._farmer);
 	}
 }

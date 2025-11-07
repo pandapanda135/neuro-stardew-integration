@@ -284,7 +284,7 @@ public static class WorldObjectActions
 
 			Point tile = ActionTiles[ActionTiles.Select(tile => tile.ToString()).ToList().IndexOf(tileString)];
 
-			if (!ActionTiles.Contains(tile) || !Main.Bot._currentLocation.isActionableTile(tile.X, tile.Y, Main.Bot._farmer))
+			if (!ActionTiles.Contains(tile) || !TileUtilities.Actionable(tile))
 			{
 				return ExecutionResult.Failure($"The tile you provided is not a valid tile, you should try another."); 
 			}

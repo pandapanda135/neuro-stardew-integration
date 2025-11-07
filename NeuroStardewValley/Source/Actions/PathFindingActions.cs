@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using Microsoft.Xna.Framework;
 using NeuroSDKCsharp.Actions;
 using NeuroSDKCsharp.Json;
@@ -107,7 +108,7 @@ public static class PathFindingActions
             Required = new List<string> { "exit" },
             Properties = new Dictionary<string, JsonSchema>
             {
-                ["exit"] = QJS.Enum(TileContext.GetWarpTilesStrings(TileContext.GetWarpTiles(Main.Bot._currentLocation,true))),
+                ["exit"] = QJS.Enum(CheckCanPathfindExit().Result),
                 ["destructive"] = QJS.Type(JsonSchemaType.Boolean)
             }
         };
@@ -120,20 +121,20 @@ public static class PathFindingActions
             Logger.Info($"data: {pointStr}");
             goal = null;
             
-            if (pointStr is null || destructive is null)
+            if (pointStr is null)
             {
                 Logger.Error($"data or yData is null");
                 return ExecutionResult.Failure($"A value you gave was null");
             }
+
+            // I think it is false if not specified but might as well double check
+            destructive ??= false;
             
-            string[] splitName = pointStr.Split(":");
-            string[] coords = splitName[1].Split(',');
+            if (!_selectedWarps.TryGetValue(pointStr, out var exitPoint)) return ExecutionResult.Failure($"{pointStr} is not a valid warp.");
 
-            Point exitPoint = new Point(int.Parse(coords[0]), int.Parse(coords[1]));
-
-            if (!TileContext.GetWarpsAsPoint(TileContext.GetWarpTiles(Main.Bot._currentLocation,true)).ContainsKey(exitPoint))
+            if (!TileContext.GetWarpsAsPoint(TileContext.GetWarpTiles(Main.Bot._currentLocation,true,true)).ContainsKey(exitPoint))
             { 
-                return ExecutionResult.Failure($"The provided tile is not an exit");
+                return ExecutionResult.Failure($"The value you provided was not a valid exit.");
             }
 
             if (exitPoint.X > TileUtilities.MaxX || exitPoint.X < -1 || // some exits are at -1
@@ -153,14 +154,21 @@ public static class PathFindingActions
             }
             
             Main.Bot.Pathfinding.BuildCollisionMapInRadius(exitPoint,3);
-            if (Main.Bot.Pathfinding.IsBlocked(exitPoint.X, exitPoint.Y) && (bool)!destructive)
+            if (Main.Bot.Pathfinding.IsBlocked(exitPoint.X, exitPoint.Y) &&
+                // this is here as actions need to be blocked something most of the time may have side effects that I don't know about though.
+                !TileUtilities.Actionable(exitPoint) && (bool)!destructive)
             {
                 return ExecutionResult.Failure("You gave a position that is blocked. Maybe try something else!");
             }
 
             AlgorithmBase.IPathing pathing = new AStar.Pathing();
-            if (pathing.FindPath(new PathNode(Main.Bot._farmer.TilePoint.X, Main.Bot._farmer.TilePoint.Y, null),
-                    new Goal.GoalPosition(exitPoint.X, exitPoint.Y), Game1.currentLocation, 10000,_destructive).Result.Count == 0)
+            Goal testGoal = new Goal.GoalPosition(exitPoint.X, exitPoint.Y);
+            if (TileUtilities.Actionable(exitPoint))
+            {
+                testGoal = new Goal.GetToTile(exitPoint.X, exitPoint.Y);
+            }
+            if (!pathing.FindPath(new PathNode(Main.Bot._farmer.TilePoint.X, Main.Bot._farmer.TilePoint.Y, null),
+                    testGoal, Main.Bot._currentLocation, 10000,_destructive).Result.Any())
             {
                 return ExecutionResult.Failure("You cannot make it to this exit, you should try something else.");
             }
@@ -176,17 +184,24 @@ public static class PathFindingActions
             try
             {
                 if (goal is null) return; // probably fine
-                Vector2 vec2 = goal.VectorLocation.ToVector2() * 64;
-                var buildings = Main.Bot._currentLocation.buildings
-                    .Where(building => building.GetBoundingBox().Contains(vec2)).ToList();
-                Building? building = null;
-                if (buildings.Count > 0)
+                Building? building = GetSurroundingBuilding(goal.VectorLocation);
+                Logger.Info($"building: {building is null}");
+                if (building is not null)
                 {
-                    building = buildings[0];
                     Point point = building.getPointForHumanDoor();
                     goal = new Goal.GetToTile(point.X, point.Y);
                 }
-            
+                
+                var actions = TileContext.GetActionAndTile();
+                bool actionTile = false;
+                Logger.Info($"{goal.VectorLocation}");
+                if (TileUtilities.Actionable(goal.VectorLocation) || 
+                    TileContext.ActionWarpString(new(goal.VectorLocation, actions[goal.VectorLocation] ?? string.Empty)) != "")
+                {
+                    actionTile = true;
+                    goal = new Goal.GetToTile(goal.VectorLocation.X, goal.VectorLocation.Y);
+                }
+                
                 if (!Utility.tileWithinRadiusOfPlayer(goal.X, goal.Y, 1, Main.Bot._farmer))
                 {
                     await Main.Bot.Pathfinding.Goto(goal, _destructive);
@@ -197,6 +212,13 @@ public static class PathFindingActions
                 }
 
                 // pathfinding can't go within 1 tile of current position so we do this.
+                if (building is null && actionTile)
+                {
+                    Logger.Info($"using action tile");
+                    Main.Bot.ActionTiles.DoActionTile(goal.VectorLocation);
+                    return;
+                }
+                
                 if (building is null)
                 {
                     List<Warp> warps = Main.Bot._currentLocation.warps.Where(warp => warp.X == goal.X && warp.Y == goal.Y)
@@ -216,6 +238,7 @@ public static class PathFindingActions
                     return;
                 }
             
+                Logger.Info($"entering human door");
                 Main.Bot.Building.UseHumanDoor(building);
             }
             catch (Exception e)
@@ -224,6 +247,42 @@ public static class PathFindingActions
                 await TaskDispatcher.SwitchToMainThread();
                 if (Main.Bot._currentLocation.Equals(_oldLocation)) RegisterMainActions.RegisterPostAction();
             }
+        }
+
+        private readonly ConcurrentDictionary<string, Point> _selectedWarps = new();
+        private async Task<List<string>> CheckCanPathfindExit()
+        {
+            var warpsAsPoint = TileContext.GetWarpsAsPoint(TileContext.GetWarpTiles(Main.Bot._currentLocation,true,true));
+
+            await TaskDispatcher.SwitchToMainThread();
+            Main.Bot.Pathfinding.BuildCollisionMap();
+            foreach (var warpStr in warpsAsPoint)
+            {
+                Logger.Info($"kvp: {warpStr.Key}   {warpStr.Value}");
+                if (_selectedWarps.ContainsKey(warpStr.Value)) continue;
+                
+                var pathNodes = await Main.Bot.Pathfinding.GetPathTo(new Goal.GetToTile(warpStr.Key.X,warpStr.Key.Y), 1000,true,false);
+                Building? building = TileUtilities.BuildingContainsTile(warpStr.Key);
+                if (!pathNodes.Any() && !Graph.IsInNeighbours(Main.Bot._farmer.TilePoint, warpStr.Key, out _, 4) && building is null) continue;
+
+                if (building is not null)
+                {
+                    string buildingName = StringUtilities.GetBuildingName(building);
+                    _selectedWarps.TryAdd(buildingName,warpStr.Key);
+                    continue;
+                }
+                
+                _selectedWarps.TryAdd(warpStr.Value,warpStr.Key);
+            }
+
+            return _selectedWarps.Keys.ToList();
+        }
+
+        private static Building? GetSurroundingBuilding(Point tile)
+        {
+            if (TileUtilities.BuildingContainsTile(tile) is not null) return TileUtilities.BuildingContainsTile(tile);
+            var graph = new Graph();
+            return graph.GroupNeighbours(tile, 4).Select(TileUtilities.BuildingContainsTile).OfType<Building>().FirstOrDefault();
         }
     }
 

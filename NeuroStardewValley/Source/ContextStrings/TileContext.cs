@@ -349,30 +349,80 @@ public static class TileContext
         return str;
     }
 
-    public static string GetWarpTiles(GameLocation location,bool addBuildings = false)
+    public static string GetWarpTiles(GameLocation location, bool addBuildings = false, bool addActionTiles = false)
     {
         location.TryGetMapProperty("Warp", out var warps);
-        if (!addBuildings) return warps;
+        if (addBuildings) warps += GetBuildingWarps(location);
 
-        warps += GetBuildingWarps(location);
+        if (addActionTiles) warps += GetActionWarps();
+        
         return warps;
     }
 
     private static string GetBuildingWarps(GameLocation location)
     {
         string warps = "";
+        Logger.Info($"{location.DisplayName}  {location.buildings.Count}");
         foreach (var building in location.buildings)
         {
-            Rectangle door = building.getRectForHumanDoor();
             if (!building.HasIndoors() || building.getPointForHumanDoor() == new Point(-1,-1)) continue;
             
-            door.Inflate(128,128); // adjust by two tiles as warp teleport location typically a few tiles away from entrance
-            foreach (var warp in building.GetIndoors().warps.Where(warp => door.Contains(new Vector2(warp.TargetX,warp.TargetY) * 64))) 
+            foreach (var warp in building.GetIndoors().warps.Where(warp => warp.TargetName == location.Name)) 
             {
                 warps += $" {warp.TargetX} {warp.TargetY} {building.GetIndoors().Name} {warp.X} {warp.Y}";
             }
         }
         return warps;
+    }
+    
+    private static string GetActionWarps()
+    {
+        string warps = "";
+        var actions = GetActionAndTile();
+
+        Logger.Info($"actions amount: {actions.Count}");
+        foreach (var kvp in actions)
+        {
+            if (kvp.Value is null) continue;
+            string str = ActionWarpString(kvp!);
+            Logger.Info($"foreach {kvp.Key}   {kvp.Value}    str: {str}");
+            if (str == "") continue;
+            warps += str;
+        }
+
+        return warps;
+    }
+
+    public static string ActionWarpString(KeyValuePair<Point, string> kvp)
+    {
+        string[] actionArray = ArgUtility.SplitBySpace(kvp.Value);
+        if (!actionArray.Any()) return ""; 
+        switch (actionArray[0])
+        {
+            case "LockedDoorWarp":
+                Logger.Info($"aciton array {kvp.Value}");
+                return $" {kvp.Key.X} {kvp.Key.Y} {actionArray[3]} {actionArray[1]} {actionArray[2]}";
+            case "Warp":
+                Logger.Warning($"warp action: {kvp.Value}");
+                return $" {kvp.Key.X} {kvp.Key.Y} {actionArray[4]} {actionArray[2]} {actionArray[3]}";
+            case "WarpCommunityCenter":
+                if (!Game1.MasterPlayer.mailReceived.Contains("ccDoorUnlock") && !Game1.MasterPlayer.mailReceived.Contains("JojaMember")) return "";
+                return $" {kvp.Key.X} {kvp.Key.Y} CommunityCenter {32} {23}";
+            case "WarpGreenhouse":
+                GameLocation greenhouse = Game1.getLocationFromName("Greenhouse");
+                if (!Game1.MasterPlayer.mailReceived.Contains("ccPantry") || greenhouse == null) return "";
+                int destinationX = 10;
+                int destinationY = 23;
+                foreach (var w in greenhouse.warps.Where(w => w.TargetName == "Farm"))
+                {
+                    destinationX = w.X;
+                    destinationY = w.Y - 1;
+                    break;
+                }
+                return $" {kvp.Key.X} {kvp.Key.Y} Greenhouse {destinationX} {destinationY}";
+        }
+
+        return "";
     }
 
     public static Dictionary<Point, string> GetWarpsAsPoint(string warps)
@@ -386,7 +436,7 @@ public static class TileContext
             Point tile = new Point(int.Parse(warpExtracts[i]), int.Parse(warpExtracts[i + 1]));
             
             string locationName = warpExtracts[i + 2];
-            warpLocation.Add(tile,locationName);
+            warpLocation.TryAdd(tile,locationName);
         }
 
         return warpLocation;
@@ -404,5 +454,21 @@ public static class TileContext
         var warpLocation = GetWarpsAsPoint(warpTiles);
 
         return warpLocation.Select(kvp => $"{kvp.Value}: {kvp.Key.X},{kvp.Key.Y}").ToList();
+    }
+
+    public static Dictionary<Point, string?> GetActionAndTile()
+    {
+        Dictionary<Point, string?> actions = new();
+        for (int x = 0; x < Main.Bot._currentLocation.Map.DisplayWidth / 64; x++)
+        {
+            for (int y = 0; y < Main.Bot._currentLocation.Map.DisplayHeight / 64; y++)
+            {
+                if (!TileUtilities.Actionable(new Point(x,y))) continue;
+                
+                actions.Add(new Point(x,y),Main.Bot._currentLocation.doesTileHaveProperty(x, y, "Action", "Buildings"));
+            }
+        }
+
+        return actions;
     }
 }
