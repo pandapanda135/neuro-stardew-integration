@@ -108,7 +108,7 @@ public static class PathFindingActions
             Required = new List<string> { "exit" },
             Properties = new Dictionary<string, JsonSchema>
             {
-                ["exit"] = QJS.Enum(CheckCanPathfindExit().Result),
+                ["exit"] = QJS.Enum(GetPathfindExits().Result),
                 ["destructive"] = QJS.Type(JsonSchemaType.Boolean)
             }
         };
@@ -195,8 +195,9 @@ public static class PathFindingActions
                 var actions = TileContext.GetActionAndTile();
                 bool actionTile = false;
                 Logger.Info($"{goal.VectorLocation}");
+                actions.TryGetValue(goal.VectorLocation, out var value);
                 if (TileUtilities.Actionable(goal.VectorLocation) || 
-                    TileContext.ActionWarpString(new(goal.VectorLocation, actions[goal.VectorLocation] ?? string.Empty)) != "")
+                    TileContext.ActionWarpString(new(goal.VectorLocation, value ?? string.Empty),true) != "")
                 {
                     actionTile = true;
                     goal = new Goal.GetToTile(goal.VectorLocation.X, goal.VectorLocation.Y);
@@ -229,7 +230,7 @@ public static class PathFindingActions
                     Main.Bot._farmer.warpFarmer(warp);
                 
                     // warps can take a second to register sometimes
-                    await Task.Delay(3000);
+                    await Utils.WaitForSeconds(3);
                     await TaskDispatcher.SwitchToMainThread();
                     if (Main.Bot._currentLocation.Equals(_oldLocation))
                     {
@@ -250,7 +251,7 @@ public static class PathFindingActions
         }
 
         private readonly ConcurrentDictionary<string, Point> _selectedWarps = new();
-        private async Task<List<string>> CheckCanPathfindExit()
+        private async Task<List<string>> GetPathfindExits()
         {
             var warpsAsPoint = TileContext.GetWarpsAsPoint(TileContext.GetWarpTiles(Main.Bot._currentLocation,true,true));
 
@@ -265,14 +266,31 @@ public static class PathFindingActions
                 Building? building = TileUtilities.BuildingContainsTile(warpStr.Key);
                 if (!pathNodes.Any() && !Graph.IsInNeighbours(Main.Bot._farmer.TilePoint, warpStr.Key, out _, 4) && building is null) continue;
 
+                // This does not handle multiple buildings, for animal buildings could maybe go off the most populated type of animal.
                 if (building is not null)
                 {
+                    Logger.Info($"building: {building}");
+                    if (!building.HasIndoors()) continue;
+                    
                     string buildingName = StringUtilities.GetBuildingName(building);
                     _selectedWarps.TryAdd(buildingName,warpStr.Key);
                     continue;
                 }
+
+                // this is due to building warps and both tile warps handling greenhouse
+                if (warpStr.Value.ToLower() == "greenhouse" && !Main.Bot._farmer.mailReceived.Contains("ccPantry"))
+                {
+                    continue;
+                }
                 
-                _selectedWarps.TryAdd(warpStr.Value,warpStr.Key);
+                var location = Game1.getLocationFromName(warpStr.Value);
+                string name = warpStr.Value;
+                // this stops buildings like the greenhouse from adding the current location
+                if (location is not null && location.DisplayName != Main.Bot._currentLocation.DisplayName)
+                {
+                    name = location.DisplayName;
+                }
+                _selectedWarps.TryAdd(name,warpStr.Key);
             }
 
             return _selectedWarps.Keys.ToList();

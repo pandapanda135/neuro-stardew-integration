@@ -2,6 +2,7 @@ using NeuroSDKCsharp.Actions;
 using NeuroSDKCsharp.Messages.Outgoing;
 using NeuroStardewValley.Debug;
 using NeuroStardewValley.Source.Actions;
+using NeuroStardewValley.Source.Utilities;
 using StardewModdingAPI.Enums;
 using StardewValley;
 using StardewValley.Menus;
@@ -43,7 +44,7 @@ public static class RegisterLevelUpMenu
 		// function after delay doesn't work here
 		Task.Run(async () =>
 		{
-			await Task.Delay(3000);
+			await Utils.WaitForSeconds(3);
 			Main.Bot.EndDaySkillMenu.SelectOkButton();
 		});
 	}

@@ -79,7 +79,7 @@ public class UseShippingBin : NeuroAction<List<Item>>
 			await TaskDispatcher.SwitchToMainThread();
 			Main.Bot.ShippingBinInteraction.OpenBin(shippingBin);
 			// if the farmer is not facing will not open so double check if the menu appears
-			await Task.Delay(1000);
+			await Utils.WaitForSeconds(1);
 			await TaskDispatcher.SwitchToMainThread();
 			if (Game1.activeClickableMenu is not ItemGrabMenu)
 			{
@@ -95,7 +95,7 @@ public class UseShippingBin : NeuroAction<List<Item>>
 			}
 			
 			Main.Bot.ShippingBinInteraction.ShipMultipleItems(resultData.ToArray());
-			await Task.Delay(5000);
+			await Utils.WaitForSeconds(5);
 			await TaskDispatcher.SwitchToMainThread();
 			// actions get registered when exiting menu.
 			Main.Bot.ShippingBinInteraction.RemoveMenu();

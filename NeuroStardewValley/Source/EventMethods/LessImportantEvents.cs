@@ -108,7 +108,7 @@ public static class LessImportantEvents
 		{
 			if (_ranCaughtFish) return;
 			_ranCaughtFish = true;
-			await Task.Delay(1500);
+			await Utils.WaitForSeconds(1.5);
 			await TaskDispatcher.SwitchToMainThread();
 			Main.Bot.FishingBar.CloseRewardMenu();
 			_ranCaughtFish = false;

@@ -120,7 +120,7 @@ internal sealed class Main : Mod
                 break;
             case SButton.U:
                 string[] action = ArgUtility.SplitBySpace(Bot._currentLocation.doesTileHaveProperty((int)Game1.currentCursorTile.X, (int)Game1.currentCursorTile.Y, "Action", "Buildings"));
-                Logger.Warning($"is action: {Game1.isActionAtCurrentCursorTile}    {string.Join(" ",action)}");
+                Logger.Warning($"is action: {Game1.isActionAtCurrentCursorTile}    action string: {string.Join(" ",action)}");
                 break;
             case SButton.V:
                 Logger.Info($"update levels");

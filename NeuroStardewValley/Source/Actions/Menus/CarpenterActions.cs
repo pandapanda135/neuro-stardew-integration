@@ -414,7 +414,7 @@ public static class PlaceBuildingActions
 	public static void RegisterPlaceBuilding(bool select = false)
 	{
 		// This stops from running SelectBuilding schema too early leading to incorrect schema
-		var task = Task.Run(async () => await Task.Delay(5000));
+		var task = Task.Run(async () => await Utils.WaitForSeconds(5));
 		task.Wait();
 		
 		ActionWindow window = ActionWindow.Create(Main.GameInstance);

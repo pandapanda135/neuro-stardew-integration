@@ -354,7 +354,7 @@ public static class TileContext
         location.TryGetMapProperty("Warp", out var warps);
         if (addBuildings) warps += GetBuildingWarps(location);
 
-        if (addActionTiles) warps += GetActionWarps();
+        if (addActionTiles) warps += GetActionWarps(true);
         
         return warps;
     }
@@ -375,7 +375,7 @@ public static class TileContext
         return warps;
     }
     
-    private static string GetActionWarps()
+    private static string GetActionWarps(bool checkDoorTime)
     {
         string warps = "";
         var actions = GetActionAndTile();
@@ -384,7 +384,7 @@ public static class TileContext
         foreach (var kvp in actions)
         {
             if (kvp.Value is null) continue;
-            string str = ActionWarpString(kvp!);
+            string str = ActionWarpString(kvp!,checkDoorTime);
             Logger.Info($"foreach {kvp.Key}   {kvp.Value}    str: {str}");
             if (str == "") continue;
             warps += str;
@@ -393,14 +393,30 @@ public static class TileContext
         return warps;
     }
 
-    public static string ActionWarpString(KeyValuePair<Point, string> kvp)
+    /// <summary>
+    /// Change a point and action string into a valid warp string if it is valid
+    /// </summary>
+    /// <param name="kvp"></param>
+    /// <param name="checkTime">This will check if a LockedDoorWarp is valid based on time and npc friendship</param>
+    /// <returns></returns>
+    public static string ActionWarpString(KeyValuePair<Point, string> kvp,bool checkTime)
     {
         string[] actionArray = ArgUtility.SplitBySpace(kvp.Value);
         if (!actionArray.Any()) return ""; 
         switch (actionArray[0])
         {
             case "LockedDoorWarp":
-                Logger.Info($"aciton array {kvp.Value}");
+                Logger.Info($"action array {kvp.Value}");
+                if (checkTime && (int.Parse(actionArray[4]) > Game1.timeOfDay ||
+                                  int.Parse(actionArray[5]) < Game1.timeOfDay)) return "";
+
+                // handle relationship
+                if (checkTime && actionArray.Length > 6)
+                {
+                    Game1.player.friendshipData.TryGetValue(actionArray[6], out var friendship);
+                    if (friendship.Points < int.Parse(actionArray[7])) return "";
+                }
+                
                 return $" {kvp.Key.X} {kvp.Key.Y} {actionArray[3]} {actionArray[1]} {actionArray[2]}";
             case "Warp":
                 Logger.Warning($"warp action: {kvp.Value}");
@@ -410,7 +426,7 @@ public static class TileContext
                 return $" {kvp.Key.X} {kvp.Key.Y} CommunityCenter {32} {23}";
             case "WarpGreenhouse":
                 GameLocation greenhouse = Game1.getLocationFromName("Greenhouse");
-                if (!Game1.MasterPlayer.mailReceived.Contains("ccPantry") || greenhouse == null) return "";
+                if (!Main.Bot._farmer.mailReceived.Contains("ccPantry") || greenhouse == null) return "";
                 int destinationX = 10;
                 int destinationY = 23;
                 foreach (var w in greenhouse.warps.Where(w => w.TargetName == "Farm"))
