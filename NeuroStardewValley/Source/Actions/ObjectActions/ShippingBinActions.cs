@@ -73,10 +73,9 @@ public static class ShippingBinActions
 				_bin = resultData;
 				Main.Bot.ShippingBinInteraction.OpenBin(_bin);
 				// if the farmer is not facing will not open so double check
-				await Utils.WaitForSeconds(1);
+				await Util.WaitForSeconds(1);
 				if (Game1.activeClickableMenu is not null) return;
 				
-				await TaskDispatcher.SwitchToMainThread();
 				RegisterMainActions.RegisterPostAction();
 			}
 			catch (Exception e)

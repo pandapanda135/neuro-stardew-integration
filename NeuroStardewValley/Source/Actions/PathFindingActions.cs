@@ -183,6 +183,8 @@ public static class PathFindingActions
         {
             try
             {
+                await TaskDispatcher.SwitchToMainThread();
+                
                 if (goal is null) return; // probably fine
                 Building? building = GetSurroundingBuilding(goal.VectorLocation);
                 Logger.Info($"building: {building is null}");
@@ -230,8 +232,7 @@ public static class PathFindingActions
                     Main.Bot._farmer.warpFarmer(warp);
                 
                     // warps can take a second to register sometimes
-                    await Utils.WaitForSeconds(3);
-                    await TaskDispatcher.SwitchToMainThread();
+                    await Util.WaitForSeconds(3);
                     if (Main.Bot._currentLocation.Equals(_oldLocation))
                     {
                         RegisterMainActions.RegisterPostAction();

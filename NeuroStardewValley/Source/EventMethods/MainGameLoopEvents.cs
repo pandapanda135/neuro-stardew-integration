@@ -166,8 +166,7 @@ public static class MainGameLoopEvents
 								j == Main.Bot.LetterViewer.GetMessage().Count - 1, j); // only send extra on last page
 							Context.Send($"{message}");
 
-							await Utils.WaitForSeconds(9);
-							await TaskDispatcher.SwitchToMainThread();
+							await Util.WaitForSeconds(9);
 							if (j != Main.Bot.LetterViewer.GetMessage().Count - 1)
 							{
 								Main.Bot.LetterViewer.NextPage();
@@ -296,7 +295,7 @@ public static class MainGameLoopEvents
 			int sell = item.sellToStorePrice();
 			shipString = string.Concat(shipString, $"\n{item.Name}: total sell price: {sell * item.Stack} single sell price: {sell}");
 		}
-		await Utils.WaitForSeconds(soldItems.Count * 0.75);
+		await Util.WaitForSeconds(soldItems.Count * 0.75);
 		Context.Send(shipString);
 		Main.Bot.EndDayShippingMenu.AdvanceToNextDay();
 	}

@@ -44,7 +44,7 @@ public static class RegisterLevelUpMenu
 		// function after delay doesn't work here
 		Task.Run(async () =>
 		{
-			await Utils.WaitForSeconds(3);
+			await Util.WaitForSeconds(3);
 			Main.Bot.EndDaySkillMenu.SelectOkButton();
 		});
 	}

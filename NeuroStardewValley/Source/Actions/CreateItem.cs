@@ -100,13 +100,11 @@ public class CreateItem : NeuroAction<KeyValuePair<CraftingRecipe,int>>
 	protected override async void Execute(KeyValuePair<CraftingRecipe, int> resultData)
 	{
 		Main.Bot.CraftingMenu.SetPageUI();
-		await Utils.WaitForSeconds(1);
-		await TaskDispatcher.SwitchToMainThread();
+		await Util.WaitForSeconds(1);
 
 		for (int i = 0; i < Main.Bot.CraftingMenu.GetAllItems().Count; i++) // change page
 		{
-			await Utils.WaitForSeconds(0.5);
-			await TaskDispatcher.SwitchToMainThread();
+			await Util.WaitForSeconds(0.5);
 			// we do this as the object in resultData and GetAllItems are different
 			if (!Main.Bot.CraftingMenu.GetAllItems()[i].Select(kvp => kvp.Value.createItem().ItemId).Contains(resultData.Key.createItem().ItemId)) continue;
 			
@@ -129,8 +127,7 @@ public class CreateItem : NeuroAction<KeyValuePair<CraftingRecipe,int>>
 		}
 		
 		Logger.Info($"result data: {resultData.Key.DisplayName}   {resultData.Value}");
-		await Utils.WaitForSeconds(3);
-		await TaskDispatcher.SwitchToMainThread();
+		await Util.WaitForSeconds(3);
 		Main.Bot.CraftingMenu.CraftItem(resultData.Key, resultData.Value);
 		// handle if there is already that same item in the inventory
 		InventoryUtils.AddToInventory(Main.Bot.CraftingMenu.Menu.heldItem,Main.Bot.CraftingMenu.Menu.inventory.inventory,Main.Bot.CraftingMenu.Menu);	

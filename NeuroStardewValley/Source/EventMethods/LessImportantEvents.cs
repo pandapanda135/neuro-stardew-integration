@@ -108,8 +108,8 @@ public static class LessImportantEvents
 		{
 			if (_ranCaughtFish) return;
 			_ranCaughtFish = true;
-			await Utils.WaitForSeconds(1.5);
-			await TaskDispatcher.SwitchToMainThread();
+			await Util.WaitForSeconds(1.5);
+			
 			Main.Bot.FishingBar.CloseRewardMenu();
 			_ranCaughtFish = false;
 			RegisterMainActions.RegisterPostAction();
