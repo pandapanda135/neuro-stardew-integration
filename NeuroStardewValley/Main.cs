@@ -108,6 +108,14 @@ internal sealed class Main : Mod
                 MouseState mouseState = Game1.input.GetMouseState();
                 Logger.Info($"mouse state: {mouseState}");
                 Logger.Info($"{new Vector2((int)((Utility.ModifyCoordinateFromUIScale(mouseState.X) + Game1.viewport.X) / 64f), (int)((Utility.ModifyCoordinateFromUIScale(mouseState.Y) + Game1.viewport.Y) / 64f))}");
+                foreach (var objects in Bot._currentLocation.overlayObjects)
+                {
+                    Logger.Info($"overlay: {objects.Value.DisplayName}  {objects.Value.questItem} {objects.Value.questId}");
+                }
+                foreach (var quest in Bot._farmer.questLog)
+                {
+                    Logger.Info($"quest: {quest.questTitle} {quest.id}");
+                }
                 break;
             case SButton.R:
                 foreach (var building in Game1.currentLocation.buildings)

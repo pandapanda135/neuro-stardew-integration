@@ -263,7 +263,7 @@ public static class PathFindingActions
                 Logger.Info($"kvp: {warpStr.Key}   {warpStr.Value}");
                 if (_selectedWarps.ContainsKey(warpStr.Value)) continue;
                 
-                var pathNodes = await Main.Bot.Pathfinding.GetPathTo(new Goal.GetToTile(warpStr.Key.X,warpStr.Key.Y), 1000,true,false);
+                var pathNodes = await Main.Bot.Pathfinding.GetPathTo(new Goal.GetToTile(warpStr.Key.X,warpStr.Key.Y), 2500,true,false);
                 Building? building = TileUtilities.BuildingContainsTile(warpStr.Key);
                 if (!pathNodes.Any() && !Graph.IsInNeighbours(Main.Bot._farmer.TilePoint, warpStr.Key, out _, 4) && building is null) continue;
 
@@ -341,7 +341,10 @@ public static class PathFindingActions
             }
             
             resultData = new(Main.Bot._currentLocation.characters[index],interact.Value);
-            return ExecutionResult.Success();
+            string resultString = interact.Value
+                ? $"Interacting with {resultData.Key.GetTokenizedDisplayName()}"
+                : $"Walking over to {resultData.Key.GetTokenizedDisplayName()}";
+            return ExecutionResult.Success(resultString);
         }
 
         protected override async void Execute(KeyValuePair<NPC,bool> resultData)
@@ -350,7 +353,8 @@ public static class PathFindingActions
             {
                 await Main.Bot.Pathfinding.Goto(new Goal.GoalDynamic(resultData.Key, 1));
                 await TaskDispatcher.SwitchToMainThread();
-                if (resultData.Value)
+                // we check neighbour to prevent opening dialogue from large distances away
+                if (resultData.Value && Graph.IsInNeighbours(Main.Bot._farmer.TilePoint,resultData.Key.TilePoint,out _))
                 {
                     Main.Bot.Characters.InteractWithCharacter(resultData.Key);
                 }
