@@ -17,46 +17,48 @@ public class InteractWithShopkeeper : NeuroAction<Point>
 {
 	public override string Name => "interact_with_shopkeeper";
 	protected override string Description => "";
-	protected override JsonSchema Schema => new()
-	{
-		Type = JsonSchemaType.Object,
-		Required = new List<string> { "shopkeeper", "item", "amount" },
-		Properties = new Dictionary<string, JsonSchema>
-		{
-			["shopkeeper"] = QJS.Enum(ShopkeepersToPoint().Keys.ToList()),
-			["item"] = QJS.Enum(GetItems().Select(item => item.DisplayName)),
-			["amount"] = QJS.Type(JsonSchemaType.Integer)
-		}
-	};
+
+	protected override JsonSchema Schema => GetSchema();
 
 	private readonly List<Item> _items = new();
 	private readonly List<int> _amounts = new();
 	protected override ExecutionResult Validate(ActionData actionData, out Point resultData)
 	{
 		string? shopKeeper = actionData.Data?.Value<string>("shopkeeper");
-		string? itemName = actionData.Data?.Value<string>("item");
-		int? itemAmount = actionData.Data?.Value<int>("amount");
-
+		string? itemName = "";
+		int? itemAmount = -1;
+		if (!Main.Config.SeparateBuyAndShopkeeperActions)
+		{
+			itemName = actionData.Data?.Value<string>("item");
+			itemAmount = actionData.Data?.Value<int>("amount");
+		}
+		
 		resultData = new();
-		if (shopKeeper is null || itemName is null || itemAmount is null) return ExecutionResult.Failure($"");
+		if (shopKeeper is null || itemName is null || itemAmount is null) return ExecutionResult.Failure($"You cannot provide a null value.");
 
 		var shopKeepers = ShopkeepersToPoint();
-		if (!shopKeepers.TryGetValue(shopKeeper, out var keeperPoint)) return ExecutionResult.Failure($"");
-		if (GetItems().All(i => i.DisplayName != itemName)) return ExecutionResult.Failure($"");
+		if (!shopKeepers.TryGetValue(shopKeeper, out var keeperPoint)) return ExecutionResult.Failure($"The shopkeeper you provided is not valid.");
+
+		if (!Main.Config.SeparateBuyAndShopkeeperActions)
+		{
+			if (GetItems().All(i => i.DisplayName != itemName)) return ExecutionResult.Failure($"The item you provided is not valid.");
 		
-		Item item = GetItems().Where(i => i.DisplayName == itemName).ToList()[0];
-		ShopItemData shopItem = GetShopItems().Where(i => i.ItemId == item.QualifiedItemId).ToList()[0];
+			Item item = GetItems().Where(i => i.DisplayName == itemName).ToList()[0];
+			ShopItemData shopItem = GetShopItems().Where(i => i.ItemId == item.QualifiedItemId).ToList()[0];
 		
-		if (shopItem.Price * itemAmount > Main.Bot.PlayerInformation.Money) return ExecutionResult.Failure($"You do not have enough money to buy so many {item.DisplayName}");
-		// TODO: maybe just make this apart of execute so Neuro doesn't have to worry about it
-		if (item.maximumStackSize() < itemAmount) 
-			return ExecutionResult.Failure($"You can only hold {item.maximumStackSize()} {item.DisplayName} at a time," +
-			                               $" if you want to buy multiple you will have to call this action multiple times."); 
+			if (shopItem.Price * itemAmount > Main.Bot.PlayerInformation.Money) return ExecutionResult.Failure($"You do not have enough money to buy so many {item.DisplayName}");
+			// TODO: maybe just make this apart of execute so Neuro doesn't have to worry about it
+			if (item.maximumStackSize() < itemAmount) 
+				return ExecutionResult.Failure($"You can only hold {item.maximumStackSize()} {item.DisplayName} at a time," +
+				                               $" if you want to buy multiple you will have to call this action multiple times.");
+			
+			_items.Add(item);
+			_amounts.Add(itemAmount.Value);
+		}
 		
 		resultData = keeperPoint;
-		_items.Add(item);
-		_amounts.Add(itemAmount.Value);
-		return ExecutionResult.Success($"Buying {itemAmount} {item.DisplayName}");
+		return ExecutionResult.Success(_items.Any() ? $"Buying {itemAmount} {_items[0].DisplayName} from {shopKeeper}."
+			: $"Walking over to {shopKeeper}.");
 	}
 
 	// the first is for building and blacksmith shop supplies is from animal shop. 
@@ -69,7 +71,9 @@ public class InteractWithShopkeeper : NeuroAction<Point>
 			await TaskDispatcher.SwitchToMainThread();
 			
 			Main.Bot.Shop.OpenShopUi(resultData.X,resultData.Y);
+			
 			await Util.WaitForSeconds(1,false);
+			// this handles selecting the dialogue option to open the shop menu if it exists
 			if (Game1.activeClickableMenu is DialogueBox box)
 			{
 				while (box.transitioning)
@@ -77,12 +81,14 @@ public class InteractWithShopkeeper : NeuroAction<Point>
 					
 				}
 
+				Logger.Info($"box dialogues: {box.dialogues.Count}");
 				for (var i = 0; i < box.dialogues.Count; i++)
 				{
 					while (box.transitioning)
 					{
 					}
 					
+					Logger.Info($"pre wait");
 					await Util.WaitForSeconds(0.5, false);
 					
 					if (!box.isQuestion)
@@ -100,9 +106,13 @@ public class InteractWithShopkeeper : NeuroAction<Point>
 					}
 				}
 			}
-
+			
 			await Util.WaitForSeconds(2);
+			if (Main.Config.SeparateBuyAndShopkeeperActions) return;
 
+			if (Game1.activeClickableMenu is not ShopMenu shopMenu) return;
+			Main.Bot.Shop.OpenShop(shopMenu);
+			
 			for (int i = 0; i < _items.Count; i++)
 			{
 				await Main.Bot.Shop.BuyItem(_items[i],_amounts[i]);
@@ -160,6 +170,27 @@ public class InteractWithShopkeeper : NeuroAction<Point>
 			default:
 				return Graph.IsInNeighbours(npc.TilePoint, point, out _, 4);
 		}
+	}
+
+	private static JsonSchema GetSchema()
+	{
+		JsonSchema schema = new()
+		{
+			Type = JsonSchemaType.Object,
+			Required = new List<string> { "shopkeeper" },
+			Properties = new Dictionary<string, JsonSchema>
+			{
+				["shopkeeper"] = QJS.Enum(ShopkeepersToPoint().Keys.ToList()),
+			}
+		};
+
+		if (Main.Config.SeparateBuyAndShopkeeperActions) return schema;
+
+		schema.Required.AddRange(new List<string> {"item", "amount"});
+		schema.Properties.Add("item", QJS.Enum(GetItems().Select(item => item.DisplayName)));
+		schema.Properties.Add("amount", QJS.Type(JsonSchemaType.Integer));
+
+		return schema;
 	}
 
 	// TODO: does not check if the shop is currently active. Kinda does now

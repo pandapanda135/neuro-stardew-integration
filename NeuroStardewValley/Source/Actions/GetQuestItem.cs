@@ -12,7 +12,7 @@ using Object = StardewValley.Object;
 
 namespace NeuroStardewValley.Source.Actions;
 
-public class GetQuestItem : NeuroAction<Object>
+public class GetQuestItem : NeuroAction<Point>
 {
 	private static List<KeyValuePair<Vector2,Object>> ValidObjects => Main.Bot._currentLocation.overlayObjects.Where(kvp =>
 		kvp.Value.questItem.Value && Main.Bot._farmer.questLog.Any(quest => quest.id == kvp.Value.questId)).ToList();
@@ -29,11 +29,11 @@ public class GetQuestItem : NeuroAction<Object>
 			[SchemaKey] = QJS.Enum(GetSchema().Result),
 		}
 	};
-	protected override ExecutionResult Validate(ActionData actionData, out Object? resultData)
+	protected override ExecutionResult Validate(ActionData actionData, out Point resultData)
 	{
 		string? itemName = actionData.Data?.Value<string>(SchemaKey);
 
-		resultData = null;
+		resultData = new();
 		if (itemName is null) return ExecutionResult.Failure($"You must provide a value");
 
 		int index;
@@ -59,26 +59,39 @@ public class GetQuestItem : NeuroAction<Object>
 			}
 		}
 		
-		resultData = ValidObjects[index].Value;
-		return ExecutionResult.Success($"Grabbing {resultData.DisplayName}");
+		resultData = ValidObjects[index].Value.TileLocation.ToPoint();
+		if (!Main.Bot._currentLocation.overlayObjects.TryGetValue(resultData.ToVector2(), out Object o))
+		{
+			return ExecutionResult.Failure($"The object you provided could not be found, this is an issue with the integration.");
+		}
+		return ExecutionResult.Success($"Grabbing {o.DisplayName}");
 	}
 
-	protected override async void Execute(Object? resultData)
+	protected override async void Execute(Point resultData)
 	{
 		try
 		{
-			if (resultData is null) return;
+			await TaskDispatcher.SwitchToMainThread();
+			// shouldn't happen probably need to check though
+			if (!Main.Bot._currentLocation.overlayObjects.TryGetValue(resultData.ToVector2(), out Object? obj))
+			{
+				RegisterMainActions.RegisterPostAction();
+				return;
+			}
 			
-			Point point = resultData.TileLocation.ToPoint();
+			Point point = obj.TileLocation.ToPoint();
 			await Main.Bot.Pathfinding.Goto(new Goal.GetToTile(point.X, point.Y),true);
 			await Util.WaitForSeconds(0.1);
-			
-			Graph.IsInNeighbours(Main.Bot._farmer.TilePoint, point, out var direction, 4);
-			if (direction == -1) return;
+
+			if (!Graph.IsInNeighbours(Main.Bot._farmer.TilePoint, point, out var direction, 4))
+			{
+				RegisterMainActions.RegisterPostAction();	
+				return;
+			}
 			Main.Bot.Player.ChangeFacingDirection(direction);
 			await Util.WaitForSeconds(0.25);
 			
-			Main.Bot.ObjectInteraction.InteractWithQuestObject(resultData);
+			Main.Bot.ObjectInteraction.InteractWithQuestObject(obj);
 			await Util.WaitForSeconds(0.5);
 			// most open up a dialogue box
 			if (Game1.activeClickableMenu is not null) return;
