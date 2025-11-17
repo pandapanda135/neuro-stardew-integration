@@ -131,15 +131,10 @@ public static class StringUtilities
 	{
 		GameLocation location = Game1.currentLocation;
 
-		OverlaidDictionary objects = location.Objects;
-
 		Dictionary<Point,Object> points = new();
-		foreach (var dict in objects)
+		foreach (var kvp in location.Objects.Pairs.Where(kvp => kvp.Value.GetType() == obj.GetType()))
 		{
-			foreach (var kvp in dict.Where(kvp => kvp.Value.GetType() == obj.GetType()))
-			{
-				points.Add(kvp.Key.ToPoint(),kvp.Value);
-			}
+			points.Add(kvp.Key.ToPoint(),kvp.Value);
 		}
 
 		return points;

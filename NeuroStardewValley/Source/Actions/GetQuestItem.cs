@@ -7,6 +7,8 @@ using NeuroStardewValley.Source.RegisterActions;
 using NeuroStardewValley.Source.Utilities;
 using StardewBotFramework.Source.Modules.Pathfinding.Base;
 using StardewValley;
+using StardewValley.Locations;
+using StardewValley.Objects;
 using StardewValley.Quests;
 using Object = StardewValley.Object;
 
@@ -14,8 +16,28 @@ namespace NeuroStardewValley.Source.Actions;
 
 public class GetQuestItem : NeuroAction<Point>
 {
-	private static List<KeyValuePair<Vector2,Object>> ValidObjects => Main.Bot._currentLocation.overlayObjects.Where(kvp =>
-		kvp.Value.questItem.Value && Main.Bot._farmer.questLog.Any(quest => quest.id == kvp.Value.questId)).ToList();
+	private static List<KeyValuePair<Vector2, Object>> ValidObjects
+	{
+		get
+		{
+			var overlayObjects = Main.Bot._currentLocation.overlayObjects.Where(kvp =>
+				kvp.Value.questItem.Value && Main.Bot._farmer.questLog.Any(quest => quest.id == kvp.Value.questId)).ToList();
+			
+			if (Main.Bot._currentLocation is not Cabin and not FarmHouse) return overlayObjects;
+		
+			List<KeyValuePair<Vector2, Object>> objs = new();
+			foreach (var kvp in Main.Bot._currentLocation.Objects.Pairs)
+			{
+				if (kvp.Value is not Chest chest) continue;
+				if (!chest.giftboxIsStarterGift.Value) continue;
+				
+				objs.Add(kvp);
+			}
+
+			overlayObjects.AddRange(objs);
+			return overlayObjects;
+		}
+	}
 	private static string SchemaKey => Main.Config.UseQuestTitleInsteadOfItemName ? "title" : "item";
 	
 	public override string Name => "get_quest_item";
@@ -47,23 +69,36 @@ public class GetQuestItem : NeuroAction<Point>
 		}
 		else
 		{
-			Quest quest = Main.Bot._farmer.questLog.Where(quest => quest.GetName() == itemName).ToList()[0]; 
-			var kvp	 = ValidObjects.Where(kvp => kvp.Value.questId.Value == quest.id.Value).ToList()[0];
-			index = ValidObjects.Select(k => k.Key).ToList().IndexOf(kvp.Key);
-			if (index == -1) return ExecutionResult.Failure($"The quest you provided is not a valid quest");
-			
-			Object obj = ValidObjects[index].Value;
-			if (Main.Bot._farmer.questLog.All(q => q.id.Value != obj.questId.Value))
+			var quests = Main.Bot._farmer.questLog.Where(quest => quest.GetName() == itemName).ToList();
+			if (!quests.Any())
 			{
-				return ExecutionResult.Failure($"The quest you provided is not valid.");
+				var titleObject = ObjectFromFakeTitle(itemName);
+				if (titleObject is null)
+				{
+					return ExecutionResult.Failure($"You provided an invalid name.");
+				}
+
+				var objs = ValidObjects.Where(kvp => kvp.Value == titleObject).ToList();
+				if (!objs.Any()) return ExecutionResult.Failure($"You provided an invalid name.");
+				// we check vectors as checking kvp is inefficient
+				index = ValidObjects.Select(kvp => kvp.Key).ToList().IndexOf(objs[0].Key);
+			}
+			else
+			{
+				Quest quest = quests[0]; 
+				var kvp	 = ValidObjects.Where(kvp => kvp.Value.questId.Value == quest.id.Value).ToList()[0];
+				index = ValidObjects.Select(k => k.Key).ToList().IndexOf(kvp.Key);
+				if (index == -1) return ExecutionResult.Failure($"The quest you provided is not a valid quest");
+			
+				Object obj = ValidObjects[index].Value;
+				if (Main.Bot._farmer.questLog.All(q => q.id.Value != obj.questId.Value))
+					return ExecutionResult.Failure($"The quest you provided is not valid.");
 			}
 		}
 		
 		resultData = ValidObjects[index].Value.TileLocation.ToPoint();
-		if (!Main.Bot._currentLocation.overlayObjects.TryGetValue(resultData.ToVector2(), out Object o))
-		{
+		if (!CheckIfInLocation(resultData.ToVector2(),out var o) || o is null) 
 			return ExecutionResult.Failure($"The object you provided could not be found, this is an issue with the integration.");
-		}
 		return ExecutionResult.Success($"Grabbing {o.DisplayName}");
 	}
 
@@ -73,8 +108,9 @@ public class GetQuestItem : NeuroAction<Point>
 		{
 			await TaskDispatcher.SwitchToMainThread();
 			// shouldn't happen probably need to check though
-			if (!Main.Bot._currentLocation.overlayObjects.TryGetValue(resultData.ToVector2(), out Object? obj))
+			if (!CheckIfInLocation(resultData.ToVector2(),out var obj) || obj is null)
 			{
+				Logger.Error($"can't find item in location");
 				RegisterMainActions.RegisterPostAction();
 				return;
 			}
@@ -89,9 +125,15 @@ public class GetQuestItem : NeuroAction<Point>
 				return;
 			}
 			Main.Bot.Player.ChangeFacingDirection(direction);
-			await Util.WaitForSeconds(0.25);
-			
-			Main.Bot.ObjectInteraction.InteractWithQuestObject(obj);
+			await Util.WaitForSeconds(0.5,false);
+
+			// This is here to, hopefully, fix issues with not picking up the object
+			// might cause concurrency issues, couldn't find any rn :)
+			while (CheckIfInLocation(resultData.ToVector2(),out _, obj))
+			{
+				Main.Bot.ObjectInteraction.InteractWithQuestObject(obj);
+				await Util.WaitForSeconds(0.25,false);
+			}
 			await Util.WaitForSeconds(0.5);
 			// most open up a dialogue box
 			if (Game1.activeClickableMenu is not null) return;
@@ -103,6 +145,38 @@ public class GetQuestItem : NeuroAction<Point>
 			await TaskDispatcher.SwitchToMainThread();
 			RegisterMainActions.RegisterPostAction();
 		}
+	}
+
+	/// <summary>
+	/// Check if there is an object at the point.
+	/// </summary>
+	/// <param name="point"></param>
+	/// <param name="tileObj"></param>
+	/// <param name="checkObj">If this is specified, obj will only be set if there is an object that is of the same item id as this item at the specified point.</param>
+	/// <returns>If you specify checkObj it will return if there is an object that is valid, else it
+	/// will just check if there is either an overlay object or object in this location at that tile.</returns>
+	private static bool CheckIfInLocation(Vector2 point, out Object? tileObj, Object? checkObj = null)
+	{
+		bool overlay = Main.Bot._currentLocation.overlayObjects.TryGetValue(point, out var overObj);
+		bool standard = Main.Bot._currentLocation.Objects.TryGetValue(point, out var standardObj);
+		if (checkObj is null)
+		{
+			tileObj = standardObj ?? overObj;
+			return overlay || standard;
+		}
+
+		tileObj = null;
+		if (overObj?.ItemId == checkObj.ItemId)
+		{
+			tileObj = overObj;
+		}
+		
+		if (standardObj?.ItemId == checkObj.ItemId)
+		{
+			tileObj = standardObj;
+		}
+
+		return tileObj is not null;
 	}
 
 	public static async Task<List<string>> GetSchema()
@@ -122,6 +196,14 @@ public class GetQuestItem : NeuroAction<Point>
 			if (Main.Config.UseQuestTitleInsteadOfItemName)
 			{
 				var quests = Main.Bot._farmer.questLog.Where(quest => quest.id.Value == kvp.Value.questId.Value).ToList();
+				if (!quests.Any())
+				{
+					var title = GetFakeQuestTitles(kvp.Value);
+					if (title == "") continue;
+					
+					names.Add(title);
+					continue;
+				}
 				names.Add(quests[0].GetName());
 				continue;
 			}
@@ -129,6 +211,28 @@ public class GetQuestItem : NeuroAction<Point>
 			names.Add(kvp.Value.DisplayName);
 		}
 
+		Logger.Info($"first end of get schema in quest items");
 		return names;
+	}
+	private static string GetFakeQuestTitles(Object obj)
+	{
+		Logger.Info($"{obj.DisplayName}    {obj.ItemId}    {obj.QualifiedItemId}");
+		if (obj is Chest chest && chest.giftboxIsStarterGift.Value)
+		{
+			return "Grab starter seeds";
+		}
+
+		return "";
+	}
+
+	private static Object? ObjectFromFakeTitle(string title)
+	{
+		foreach (var kvp in ValidObjects)
+		{
+			if (GetFakeQuestTitles(kvp.Value) != title) continue;
+			return kvp.Value;
+		}
+		
+		return null;
 	}
 }

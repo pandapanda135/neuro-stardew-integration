@@ -119,14 +119,11 @@ public class InteractAtTile : NeuroAction<Point>
 		object? o = null;
 		if (feature is not null) o = feature;
 
-		foreach (var dict in Main.Bot._currentLocation.Objects)
+		foreach (var kvp in Main.Bot._currentLocation.Objects.Pairs)
 		{
-			foreach (var kvp in dict)
-			{
-				if (!kvp.Value.GetBoundingBox().Contains(point.ToVector2() * 64)) continue;
+			if (!kvp.Value.GetBoundingBox().Contains(point.ToVector2() * 64)) continue;
 				
-				o = kvp.Value;
-			}
+			o = kvp.Value;
 		}
 		
 		foreach (var furniture in Main.Bot._currentLocation.furniture)

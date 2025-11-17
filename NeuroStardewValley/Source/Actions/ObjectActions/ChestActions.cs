@@ -70,14 +70,11 @@ public static class ChestActions
 			{
 				if (resultData is null) return;
 			
-				foreach (var dict in Game1.currentLocation.Objects)
+				foreach (var kvp in Main.Bot._currentLocation.Objects.Pairs.Where(kvp => kvp.Value == resultData))
 				{
-					foreach (var kvp in dict.Where(kvp => kvp.Value == resultData))
-					{
-						await Main.Bot.Pathfinding.Goto(new Goal.GetToTile(kvp.Key.ToPoint().X,kvp.Key.ToPoint().Y));
-						await TaskDispatcher.SwitchToMainThread();
-						Open(resultData);
-					}
+					await Main.Bot.Pathfinding.Goto(new Goal.GetToTile(kvp.Key.ToPoint().X,kvp.Key.ToPoint().Y));
+					await TaskDispatcher.SwitchToMainThread();
+					Open(resultData);
 				}
 			}
 			catch (Exception e)
@@ -110,16 +107,12 @@ public static class ChestActions
 		{
 			List<string> chestPoints = new();
 			chests = new();
-			foreach (var dict in Game1.currentLocation.Objects)
+			foreach (var kvp in Game1.currentLocation.Objects.Pairs)
 			{
-				foreach (var kvp in dict)
-				{
-					if (kvp.Value is Chest chest)
-					{
-						chests.Add(chest);
-						chestPoints.Add(kvp.Key.ToPoint().ToString());
-					}
-				}
+				if (kvp.Value is not Chest chest) continue;
+				
+				chests.Add(chest);
+				chestPoints.Add(kvp.Key.ToPoint().ToString());
 			}
 
 			return chestPoints;

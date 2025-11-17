@@ -24,7 +24,7 @@ public class ModConfig
     // for actions that have both a rectangle and range variant this will register the range version if true.
     public bool UseRange { get; set; } = true;
     // GetQuestItem use quest title instead of item name
-    public bool UseQuestTitleInsteadOfItemName { get; set; } = false;
+    public bool UseQuestTitleInsteadOfItemName { get; set; } = true;
     public bool SeparateBuyAndShopkeeperActions { get; set; } = false;
     
     // Stop main menu automation keybind, These are the valid keys: https://stardewvalleywiki.com/Modding:Player_Guide/Key_Bindings

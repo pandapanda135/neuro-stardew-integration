@@ -127,9 +127,10 @@ internal sealed class Main : Mod
 
                 break;
             case SButton.U:
+                Logger.Info($"current game location: {Bot._currentLocation.GetType()}");
                 string[] action = ArgUtility.SplitBySpace(Bot._currentLocation.doesTileHaveProperty((int)Game1.currentCursorTile.X, (int)Game1.currentCursorTile.Y, "Action", "Buildings"));
                 Logger.Warning($"is action: {Game1.isActionAtCurrentCursorTile}    action string: {string.Join(" ",action)}");
-                var overlayObject = Bot._currentLocation.overlayObjects[Game1.currentCursorTile];
+                Bot._currentLocation.overlayObjects.TryGetValue(Game1.currentCursorTile,out var overlayObject);
                 if (overlayObject is null) return;
                 Logger.Info($"interacting with item");
                 Bot.ObjectInteraction.InteractWithQuestObject(overlayObject);
