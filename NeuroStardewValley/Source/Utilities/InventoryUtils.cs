@@ -47,4 +47,33 @@ public static class InventoryUtils
 			break;
 		}
 	}
+
+	public static bool CanFitAmount(List<Item> items)
+	{
+		foreach (var item in items)
+		{
+			foreach (var i in Main.Bot.Inventory.Inventory)
+			{
+				if (i is null) continue;
+				if (item.ItemId != i.ItemId) continue;
+
+				if ((i.Stack + item.Stack) > i.maximumStackSize())
+				{
+					return false;
+				}
+			}
+		}
+
+		return CanFitAmount(items.Count);
+	}
+
+	public static bool CanFitAmount(int count)
+	{
+		if (Main.Bot.Inventory.Inventory.Any(item => item is null))
+		{
+			return count > Main.Bot.Inventory.Inventory.Count(item => item is not null) - Main.Bot.Inventory.Inventory.Count;
+		}
+		
+		return count > Main.Bot.Inventory.MaxInventory - Main.Bot.Inventory.Inventory.Count;
+	}
 }

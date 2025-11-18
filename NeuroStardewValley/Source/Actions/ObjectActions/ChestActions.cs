@@ -360,4 +360,278 @@ public static class ChestActions
 			$"{InventoryContext.GetInventoryString(Main.Bot.Inventory.Inventory,true)}",true);
 		window.Register();
 	}
+
+	public struct ItemJson
+	{
+		public ItemJson(string item, int quantity)
+		{
+			Item = item;
+			Quantity = quantity;
+		}
+			
+		public readonly string Item;
+		public readonly int Quantity;
+	}
+	public class TakeItemFromChest : NeuroAction<KeyValuePair<List<Chest>, List<ItemJson>>>
+	{
+		public override string Name => "take_items_to_chest";
+		protected override string Description => "Take the provided items from chests near you";
+		protected override JsonSchema Schema => new()
+		{
+			Type = JsonSchemaType.Object,
+			Required = new List<string> { "items" },
+			Properties = new Dictionary<string, JsonSchema>
+			{
+				["items"] = new()
+				{
+					Type = JsonSchemaType.Array,
+					Items = new JsonSchema
+					{
+						Type = JsonSchemaType.Object,
+						Required = { "item", "quantity" },
+						Properties =
+						{
+							["item"] = new() { Type = JsonSchemaType.String, Enum = GetItemsFromChest().Values.SelectMany(inv => inv).Select(item => item.DisplayName).ToList<object>()},
+							["quantity"] = new()
+							{
+								Type = JsonSchemaType.Integer,
+							}
+						}
+					}
+				}
+			}
+		};
+		protected override ExecutionResult Validate(ActionData actionData, out KeyValuePair<List<Chest>, List<ItemJson>> resultData)
+		{
+			var itemIndex = actionData.Data?.Value<object>("items");
+
+			resultData = new();
+			if (itemIndex is null)
+			{
+				return ExecutionResult.Failure($"You provided an invalid value.");
+			}
+
+			List<ItemJson> items = new();
+			try
+			{
+				foreach (var kvp in (JArray)itemIndex)
+				{
+					string? itemStr = kvp.Value<string>("item");
+					int? quantity = kvp.Value<int>("quantity");
+					if (itemStr is null || quantity is null) continue;
+					var itemJson = new ItemJson(itemStr,quantity.Value);
+					items.Add(itemJson);
+					Logger.Info($"kvp 1: {kvp}     item json: {itemJson.Item}  {itemJson.Quantity}");
+				}
+			}
+			catch (Exception e)
+			{
+				Logger.Error($"{e}");
+				return ExecutionResult.Failure(
+					$"You provided invalid json, look at this error message and think about the many mistakes" +
+					$" you have made in your life to get to this point. {e}");
+			}
+
+			if (!InventoryUtils.CanFitAmount(items.Count))
+			{
+				return ExecutionResult.Failure($"You cannot fit this many items in your inventory.");
+			}
+			
+			// TODO: make getting correct stack size work
+			Dictionary<Chest,List<Item>> validItems = new();
+			foreach (var kvp in GetItemsFromChest())
+			{
+				foreach (var item in kvp.Value)
+				{
+					if (items.All(json => json.Item != item.DisplayName)) continue;
+					if (items.Any(json => json.Item == item.DisplayName && json.Quantity > item.Stack)) continue;
+
+					if (!validItems.ContainsKey(kvp.Key))
+					{
+						validItems.Add(kvp.Key,new() {item});
+						continue;
+					}
+					
+					validItems[kvp.Key].Add(item);
+				}
+			}
+
+			if (validItems.Any(kvp => !InventoryUtils.CanFitAmount(kvp.Value)))
+			{
+				return ExecutionResult.Failure($"You cannot fit certain items in your inventory.");
+			}
+			
+			return ExecutionResult.Success($"");
+		}
+
+		protected override void Execute(KeyValuePair<List<Chest>, List<ItemJson>> resultData)
+		{
+			throw new NotImplementedException();
+		}
+		private static Dictionary<Chest, IInventory> GetItemsFromChest()
+		{
+			Dictionary<Chest, IInventory> items = new();
+			foreach (var kvp in Main.Bot._currentLocation.Objects.Pairs)
+			{
+				if (kvp.Value is Chest chest)
+				{
+					items.Add(chest, chest.Items);	
+				}
+			}
+
+			return items;
+		}
+	}
+
+	public class AddItemToChest : NeuroAction<KeyValuePair<List<Item>,List<int>>>
+	{
+		public override string Name => "add_items_to_chest";
+		protected override string Description => "Add items to chest";
+		protected override JsonSchema Schema => new()
+		{
+			Type = JsonSchemaType.Object,
+			Required = new List<string> { "items" },
+			Properties = new Dictionary<string, JsonSchema>
+			{
+				["items"] = new()
+				{
+					Type = JsonSchemaType.Array,
+					Items = new JsonSchema
+					{
+						Type = JsonSchemaType.Object,
+						Required = { "item", "quantity" },
+						Properties =
+						{
+							["item"] = new() { Type = JsonSchemaType.String, Enum = ItemEnum(Main.Bot.Inventory.Inventory)},
+							["quantity"] = new()
+							{
+								Type = JsonSchemaType.Integer,
+							}
+						}
+					}
+				}
+			}
+		};
+		protected override ExecutionResult Validate(ActionData actionData, out KeyValuePair<List<Item>, List<int>> resultData)
+		{
+			var itemIndex = actionData.Data?.Value<object>("items");
+
+			resultData = new();
+			if (itemIndex is null)
+			{
+				return ExecutionResult.Failure($"You provided an invalid value.");
+			}
+
+			if (!GetNearestChests().Any()) 
+				return ExecutionResult.Failure($"There are no chests in this location, so this action should not be registered." +
+				                               $" That means the developer of this integration is stupid :(");
+
+			List<ItemJson> items = new();
+			try
+			{
+				foreach (var kvp in (JArray)itemIndex)
+				{
+					string? itemStr = kvp.Value<string>("item");
+					int? quantity = kvp.Value<int>("quantity");
+					if (itemStr is null || quantity is null) continue;
+					var itemJson = new ItemJson(itemStr,quantity.Value);
+					items.Add(itemJson);
+					Logger.Info($"kvp 1: {kvp}     item json: {itemJson.Item}  {itemJson.Quantity}");
+				}
+			}
+			catch (Exception e)
+			{
+				Logger.Error($"{e}");
+				return ExecutionResult.Failure(
+					$"You provided invalid json, look at this error message and think about the many mistakes" +
+					$" you have made in your life to get to this point. {e}");
+			}
+
+			resultData = new(new(), new());
+			foreach (var item in Main.Bot.Inventory.Inventory)
+			{
+				if (item is null) continue;
+				foreach (var json in items)
+				{
+					if (json.Item != item.DisplayName) continue;
+					if ((json.Quantity + item.Stack) > item.maximumStackSize()) continue;
+					
+					resultData.Key.Add(item);
+					resultData.Value.Add(json.Quantity);
+				}	
+			}
+
+			if (resultData.Key.Count != items.Count || resultData.Value.Count != items.Count)
+			{
+				return ExecutionResult.Failure($"You do not have certain items.");
+			}
+
+
+			return ExecutionResult.Success();
+		}
+
+		protected override async void Execute(KeyValuePair<List<Item>, List<int>> resultData)
+		{
+			try
+			{
+				for (int i = 0; i < resultData.Key.Count; i++)
+				{
+					Item item = resultData.Key[i];
+					int amount = resultData.Value[i];
+
+					Chest? chest = null;
+					foreach (var c in GetNearestChests())
+					{
+						if (!c.Items.Contains(item)) continue;
+
+						chest = c;
+					}
+
+					chest ??= GetNearestChests()[0];
+					
+					// TODO: pathfinding and all that stuff
+
+					await PathfindToChest(chest);
+					await Util.WaitForSeconds(0.2);
+					Main.Bot.Chest.OpenChest(chest);
+					await Util.WaitForSeconds(0.1);
+
+					if (Game1.activeClickableMenu is not ItemGrabMenu)
+					{
+						continue;
+					}
+
+					Main.Bot.ItemGrabMenu.AddItemAmount(item, amount);
+				}
+			}
+			catch (Exception e)
+			{
+				await TaskDispatcher.SwitchToMainThread();
+				Logger.Error($"{e}");
+				RegisterMainActions.RegisterPostAction();
+			}
+		}
+	}
+
+	private static async Task PathfindToChest(Chest chest)
+	{
+		await TaskDispatcher.SwitchToMainThread();
+		Point point = chest.TileLocation.ToPoint();
+		await Main.Bot.Pathfinding.Goto(new Goal.GetToTile(point.X, point.Y));
+	}
+
+	private static List<Chest> GetNearestChests()
+	{
+		List<Chest> chests = new();
+
+		foreach (var kvp in Main.Bot._currentLocation.Objects.Pairs)
+		{
+			if (kvp.Value is not Chest chest) continue;
+			
+			chests.Add(chest);
+		}
+		
+		chests.Sort(Util.SortObjectsByDistance);
+		return chests;
+	}
 }
