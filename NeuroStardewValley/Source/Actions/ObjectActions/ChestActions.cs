@@ -7,6 +7,7 @@ using NeuroStardewValley.Source.ContextStrings;
 using NeuroStardewValley.Source.RegisterActions;
 using NeuroStardewValley.Source.Utilities;
 using Newtonsoft.Json.Linq;
+using StardewBotFramework.Source;
 using StardewBotFramework.Source.Modules.Pathfinding.Base;
 using StardewValley;
 using StardewValley.Inventories;
@@ -315,13 +316,19 @@ public static class ChestActions
 		}
 	}
 	
-	private static List<object> ItemEnum(IInventory inventory)
+	private static List<object> ItemEnum(IInventory inventory, bool addStack = false)
+	{
+		return ItemEnum(inventory.ToList(),addStack);
+	}
+	
+	private static List<object> ItemEnum(List<Item?> inventory, bool addStack = false)
 	{
 		List<object> items = new();
 		for (int i = 0; i < inventory.Count; i++)
 		{
-			if (inventory[i] is null) continue;
-			items.Add($"{i}: {inventory[i].DisplayName}");
+			Item? item = inventory[i];
+			if (item is null) continue;
+			items.Add($"{i}: {item.DisplayName}{(addStack ? $" amount: {item.Stack}" : string.Empty)}");
 		}
 
 		return items;
@@ -372,7 +379,7 @@ public static class ChestActions
 		public readonly string Item;
 		public readonly int Quantity;
 	}
-	public class TakeItemFromChest : NeuroAction<KeyValuePair<List<Chest>, List<ItemJson>>>
+	public class TakeItemFromChest : NeuroAction<Dictionary<Chest, List<Item>>>
 	{
 		public override string Name => "take_items_to_chest";
 		protected override string Description => "Take the provided items from chests near you";
@@ -391,17 +398,17 @@ public static class ChestActions
 						Required = { "item", "quantity" },
 						Properties =
 						{
-							["item"] = new() { Type = JsonSchemaType.String, Enum = GetItemsFromChest().Values.SelectMany(inv => inv).Select(item => item.DisplayName).ToList<object>()},
+							["item"] = new() { Type = JsonSchemaType.String, Enum = GetItemsFromChest().Values.SelectMany(inv => ItemEnum(inv,true)).ToList()},
 							["quantity"] = new()
 							{
-								Type = JsonSchemaType.Integer,
+								Type = JsonSchemaType.Integer
 							}
 						}
 					}
 				}
 			}
 		};
-		protected override ExecutionResult Validate(ActionData actionData, out KeyValuePair<List<Chest>, List<ItemJson>> resultData)
+		protected override ExecutionResult Validate(ActionData actionData, out Dictionary<Chest, List<Item>> resultData)
 		{
 			var itemIndex = actionData.Data?.Value<object>("items");
 
@@ -432,27 +439,39 @@ public static class ChestActions
 					$" you have made in your life to get to this point. {e}");
 			}
 
+			Logger.Info($"items amount: {items.Count}");
+			if (!items.Any())
+				return ExecutionResult.Failure($"You have either not provided any items or not provided any valid items.");
+
 			if (!InventoryUtils.CanFitAmount(items.Count))
-			{
 				return ExecutionResult.Failure($"You cannot fit this many items in your inventory.");
-			}
 			
-			// TODO: make getting correct stack size work
 			Dictionary<Chest,List<Item>> validItems = new();
+			Dictionary<Chest,List<ItemJson>> quantities = new();
 			foreach (var kvp in GetItemsFromChest())
 			{
 				foreach (var item in kvp.Value)
 				{
-					if (items.All(json => json.Item != item.DisplayName)) continue;
-					if (items.Any(json => json.Item == item.DisplayName && json.Quantity > item.Stack)) continue;
-
-					if (!validItems.ContainsKey(kvp.Key))
+					foreach (var json in items.Where(json =>
+						         json.Item == $"{kvp.Value.IndexOf(item)}: {item.DisplayName} amount: {item.Stack}" &&
+						         json.Quantity <= item.Stack))
 					{
-						validItems.Add(kvp.Key,new() {item});
-						continue;
+						if (!validItems.ContainsKey(kvp.Key))
+						{
+							validItems.Add(kvp.Key,new() {item});
+							if (!quantities.ContainsKey(kvp.Key))
+							{
+								quantities.Add(kvp.Key,new() {json});
+								continue;
+							}
+							
+							quantities[kvp.Key].Add(json);
+							continue;
+						}
+						
+						validItems[kvp.Key].Add(item);
+						quantities[kvp.Key].Add(json);
 					}
-					
-					validItems[kvp.Key].Add(item);
 				}
 			}
 
@@ -461,25 +480,61 @@ public static class ChestActions
 				return ExecutionResult.Failure($"You cannot fit certain items in your inventory.");
 			}
 			
-			return ExecutionResult.Success($"");
+			resultData = validItems;
+			_quantities = quantities;
+			return ExecutionResult.Success($"Taking the items from the nearest chests.");
 		}
 
-		protected override void Execute(KeyValuePair<List<Chest>, List<ItemJson>> resultData)
+		private Dictionary<Chest, List<ItemJson>> _quantities = new();
+		protected override async void Execute(Dictionary<Chest, List<Item>>? resultData)
 		{
-			throw new NotImplementedException();
+			try
+			{
+				if (resultData is null) return;
+
+				Chest? previousChest = null;
+				foreach (var chest in GetNearestChests().Where(resultData.ContainsKey))
+				{
+					if (Game1.activeClickableMenu is ItemGrabMenu && chest != previousChest) Main.Bot.Chest.CloseChest();
+					previousChest = chest;
+					
+					await PathfindToChest(chest);
+					await Util.WaitForSeconds(0.3);
+					Main.Bot.Chest.OpenChest(chest);
+					await Util.WaitForSeconds(0.3);
+					
+					// if bot couldn't open chest for whatever reason
+					if (Game1.activeClickableMenu is not ItemGrabMenu) continue;
+
+					for (int i = 0; i < resultData[chest].Count; i++)
+					{
+						// TODO: this does remove the correct amount of the item it just doesn't add it to the inventory. There is a temporary solution but I don't like it.
+						Main.Bot.ItemGrabMenu.RemoveItemAmount(resultData[chest][i],_quantities[chest][i].Quantity);
+						var item = resultData[chest][i].getOne();
+						item.Stack = _quantities[chest][i].Quantity;
+						Main.Bot._farmer.addItemToInventory(item);
+						await Util.WaitForSeconds(0.3);
+					}
+				}
+				
+				Main.Bot.Chest.CloseChest();
+			}
+			catch (Exception e)
+			{
+				Logger.Error($"{e}");
+				await TaskDispatcher.SwitchToMainThread();
+				if (Game1.activeClickableMenu is not null)
+				{
+					Game1.activeClickableMenu = null;
+					return;
+				}
+
+				RegisterMainActions.RegisterPostAction();
+			}
 		}
 		private static Dictionary<Chest, IInventory> GetItemsFromChest()
 		{
-			Dictionary<Chest, IInventory> items = new();
-			foreach (var kvp in Main.Bot._currentLocation.Objects.Pairs)
-			{
-				if (kvp.Value is Chest chest)
-				{
-					items.Add(chest, chest.Items);	
-				}
-			}
-
-			return items;
+			return GetNearestChests().ToDictionary<Chest, Chest, IInventory>(chest => chest, chest => chest.Items);
 		}
 	}
 
@@ -548,61 +603,96 @@ public static class ChestActions
 			}
 
 			resultData = new(new(), new());
+			var jsonItems = EnumToItem(Main.Bot.Inventory.Inventory, items.Select(json => json.Item).ToList());
 			foreach (var item in Main.Bot.Inventory.Inventory)
 			{
 				if (item is null) continue;
-				foreach (var json in items)
+				for (int i = 0; i < jsonItems.Count; i++)
 				{
-					if (json.Item != item.DisplayName) continue;
-					if ((json.Quantity + item.Stack) > item.maximumStackSize()) continue;
-					
+					var json = jsonItems[i];
+					Logger.Info($"json item: {json.DisplayName}   count: {json.Stack}   item: {item.DisplayName}   {item.Stack}");
+					if (json.DisplayName != item.DisplayName || json.Stack > item.Stack) continue;
+
 					resultData.Key.Add(item);
-					resultData.Value.Add(json.Quantity);
-				}	
+					resultData.Value.Add(items[i].Quantity);
+				}
 			}
 
-			if (resultData.Key.Count != items.Count || resultData.Value.Count != items.Count)
-			{
-				return ExecutionResult.Failure($"You do not have certain items.");
-			}
-
-
-			return ExecutionResult.Success();
+			if (resultData.Key.Count == items.Count && resultData.Value.Count == items.Count)
+				return ExecutionResult.Success($"Adding items to the nearest chests.");
+			
+			Logger.Error($"key count: {resultData.Key.Count}  value count: {resultData.Value.Count}   item count: {items.Count}");
+			return ExecutionResult.Failure($"You are missing certain items.");
 		}
 
 		protected override async void Execute(KeyValuePair<List<Item>, List<int>> resultData)
 		{
 			try
 			{
+				Chest? previousChest = null;
 				for (int i = 0; i < resultData.Key.Count; i++)
 				{
 					Item item = resultData.Key[i];
 					int amount = resultData.Value[i];
+					Logger.Info($"item: {item.DisplayName} {item.Stack}  amount: {amount}");
 
+					// this shouldn't happen here just in case though
+					if (!GetNearestChests().Any())
+					{
+						Logger.Error($"There are no longer any chests nearby :(    i: {i}");
+						continue;
+					}
+					
 					Chest? chest = null;
 					foreach (var c in GetNearestChests())
 					{
-						if (!c.Items.Contains(item)) continue;
+						List<Item> matchingItems = c.Items.Where(item1 =>
+							item1.ItemId == item.ItemId && item1.Stack + item.Stack < item.maximumStackSize()).ToList();
+						if (!matchingItems.Any()) continue;
 
 						chest = c;
+						break;
+					}
+					
+					// we do this here to prevent stackable item chests from the above foreach
+					if (chest is null)
+					{
+						foreach (var c in GetNearestChests().Where(c => c.Items.Count != c.GetActualCapacity()))
+						{
+							chest = c;
+							break;
+						}
+					}
+					if (chest is null) continue;
+					
+					if (previousChest is not null && previousChest.TileLocation != chest.TileLocation)
+					{
+						// TODO: figure out how to block actions from being registered
+						Main.Bot.Chest.CloseChest();
 					}
 
-					chest ??= GetNearestChests()[0];
-					
-					// TODO: pathfinding and all that stuff
+					previousChest = chest;
 
-					await PathfindToChest(chest);
-					await Util.WaitForSeconds(0.2);
-					Main.Bot.Chest.OpenChest(chest);
-					await Util.WaitForSeconds(0.1);
-
-					if (Game1.activeClickableMenu is not ItemGrabMenu)
+					if (Game1.activeClickableMenu is ItemGrabMenu)
 					{
+						Main.Bot.ItemGrabMenu.AddItemAmount(item, amount);
 						continue;
 					}
+			
+					await PathfindToChest(chest);
+					await Util.WaitForSeconds(0.3);
+					Main.Bot.Chest.OpenChest(chest);
+					await Util.WaitForSeconds(0.3);	
+					
+					// if bot couldn't open chest for whatever reason
+					if (Game1.activeClickableMenu is not ItemGrabMenu) continue;
 
+					// TODO: this is moving all of the items instead of stack amount
 					Main.Bot.ItemGrabMenu.AddItemAmount(item, amount);
 				}
+
+				await Util.WaitForSeconds(0.75);
+				Main.Bot.Chest.CloseChest();
 			}
 			catch (Exception e)
 			{
@@ -618,6 +708,11 @@ public static class ChestActions
 		await TaskDispatcher.SwitchToMainThread();
 		Point point = chest.TileLocation.ToPoint();
 		await Main.Bot.Pathfinding.Goto(new Goal.GetToTile(point.X, point.Y));
+		await Util.WaitForSeconds(0.1);
+		
+		Graph.IsInNeighbours(Main.Bot._farmer.TilePoint, point, out var direction, 4);
+		if (direction == -1) return;
+		Main.Bot.Player.ChangeFacingDirection(direction);
 	}
 
 	private static List<Chest> GetNearestChests()

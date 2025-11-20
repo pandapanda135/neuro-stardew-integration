@@ -28,7 +28,7 @@ public static class Util
 
 		if (distance < distance2)
 		{
-			return 1;
+			return -1;
 		}
 
 		if (Math.Abs(distance - distance2) < 0)
@@ -38,7 +38,7 @@ public static class Util
 
 		if (distance > distance2)
 		{
-			return -1;
+			return 1;
 		}
 
 		return 0;
