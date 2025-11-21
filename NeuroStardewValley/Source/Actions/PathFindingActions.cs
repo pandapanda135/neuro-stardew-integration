@@ -254,10 +254,10 @@ public static class PathFindingActions
         private readonly ConcurrentDictionary<string, Point> _selectedWarps = new();
         private async Task<List<string>> GetPathfindExits()
         {
-            var warpsAsPoint = TileContext.GetWarpsAsPoint(TileContext.GetWarpTiles(Main.Bot._currentLocation,true,true));
-
             await TaskDispatcher.SwitchToMainThread();
+            var warpsAsPoint = TileContext.GetWarpsAsPoint(TileContext.GetWarpTiles(Main.Bot._currentLocation,true,true));
             Main.Bot.Pathfinding.BuildCollisionMap();
+            
             foreach (var warpStr in warpsAsPoint)
             {
                 Logger.Info($"kvp: {warpStr.Key}   {warpStr.Value}");
@@ -267,7 +267,8 @@ public static class PathFindingActions
                 Building? building = TileUtilities.BuildingContainsTile(warpStr.Key);
                 if (!pathNodes.Any() && !Graph.IsInNeighbours(Main.Bot._farmer.TilePoint, warpStr.Key, out _, 4) && building is null) continue;
 
-                // This does not handle multiple buildings, for animal buildings could maybe go off the most populated type of animal.
+                // This does not handle multiple buildings, for animal buildings could maybe include the most populated type of animal.
+                // TODO: fix above
                 if (building is not null)
                 {
                     Logger.Info($"building: {building}");

@@ -7,7 +7,6 @@ using NeuroStardewValley.Source.ContextStrings;
 using NeuroStardewValley.Source.RegisterActions;
 using NeuroStardewValley.Source.Utilities;
 using Newtonsoft.Json.Linq;
-using StardewBotFramework.Source;
 using StardewBotFramework.Source.Modules.Pathfinding.Base;
 using StardewValley;
 using StardewValley.Inventories;
@@ -368,7 +367,7 @@ public static class ChestActions
 		window.Register();
 	}
 
-	public struct ItemJson
+	private struct ItemJson
 	{
 		public ItemJson(string item, int quantity)
 		{
@@ -687,7 +686,6 @@ public static class ChestActions
 					// if bot couldn't open chest for whatever reason
 					if (Game1.activeClickableMenu is not ItemGrabMenu) continue;
 
-					// TODO: this is moving all of the items instead of stack amount
 					Main.Bot.ItemGrabMenu.AddItemAmount(item, amount);
 				}
 

@@ -89,7 +89,7 @@ public static class TileUtilities
 	}
 
 	/// <summary>
-	/// Get the tile building at the provided tile.
+	/// If there is a building at this tile return it, else return null.
 	/// </summary>
 	/// <param name="tile">The tile location</param>
 	public static Building? BuildingContainsTile(Point tile)

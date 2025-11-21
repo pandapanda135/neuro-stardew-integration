@@ -37,7 +37,7 @@ public static class QuestLogActions
 			Required = new List<string> { "quest_index" },
 			Properties = new Dictionary<string, JsonSchema>
 			{
-				["quest_index"] = QJS.Enum(Enumerable.Range(0, Game1.player.questLog.Count))
+				["quest_index"] = QJS.Enum(Enumerable.Range(0, Main.Bot._farmer.questLog.Count))
 			}
 		};
 		protected override ExecutionResult Validate(ActionData actionData, out int resultData)

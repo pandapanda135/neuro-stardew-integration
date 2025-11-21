@@ -7,6 +7,7 @@ using NeuroStardewValley.Source.Actions.Menus;
 using NeuroStardewValley.Source.EventMethods;
 using NeuroStardewValley.Source.RegisterActions;
 using NeuroStardewValley.Source.Utilities;
+using StardewBotFramework.Source.Modules.Pathfinding;
 using StardewBotFramework.Source.Modules.Pathfinding.Base;
 using StardewValley;
 using StardewValley.Menus;
@@ -90,6 +91,8 @@ internal sealed class Main : Mod
             case SButton.I:
                 Logger.Info(
                     $"pixel tile: {Game1.currentCursorTile.X * Game1.tileSize}  {Game1.currentCursorTile.Y * Game1.tileSize}");
+                Logger.Warning($"collision map collisions: {CollisionMap.IsCurrentlyBlocked(Bot._currentLocation,(int)Game1.currentCursorTile.X,(int)Game1.currentCursorTile.Y)}");
+                Logger.Warning($"neighbours: {Graph.AreNeighboursBlocked(Game1.currentCursorTile.ToPoint(),out var directions,4)}     direction: {directions}");
                 break;
             case SButton.Y:
                 foreach (var building in Game1.getFarm().buildings)
@@ -123,6 +126,13 @@ internal sealed class Main : Mod
                     building.FinishConstruction();
                     Logger.Info(
                         $"{building.GetIndoors()}    {building.GetIndoorsName()}    {building.GetIndoorsType()}");
+                }
+
+                break;
+            case SButton.K:
+                foreach (var quest in Main.Bot.QuestLog.Quests)
+                {
+                    Logger.Info($"quest index: {quest.questTitle}   {Main.Bot.QuestLog.Quests.IndexOf(quest)}");	
                 }
 
                 break;
