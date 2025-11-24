@@ -5,15 +5,14 @@ using NeuroSDKCsharp.Websocket;
 using NeuroStardewValley.Debug;
 using NeuroStardewValley.Source.RegisterActions;
 using NeuroStardewValley.Source.Utilities;
-using Newtonsoft.Json.Linq;
-using StardewBotFramework.Source.Modules.Pathfinding.Base;
 using StardewValley;
 using StardewValley.Buildings;
 using StardewValley.Menus;
+using static NeuroStardewValley.Source.Utilities.SchemaUtilities;
 
 namespace NeuroStardewValley.Source.Actions;
 
-public class UseShippingBin : NeuroAction<List<Item>>
+public class UseShippingBin : NeuroAction<KeyValuePair<List<Item>,List<int>>>
 {
 	public override string Name => "use_shipping_bin";
 	protected override string Description => "Use the nearest shipping bin and sell the specified items.";
@@ -27,42 +26,63 @@ public class UseShippingBin : NeuroAction<List<Item>>
 			["items"] = new()
 			{
 				Type = JsonSchemaType.Array,
-				Items = new JsonSchema { Enum = Main.Bot.Inventory.Inventory.Where(item => item is not null && item.canBeShipped()).Select(object (item) => item.DisplayName).ToList()},
+				Items = new JsonSchema
+				{
+					Type = JsonSchemaType.Object,
+					Required = { "item", "quantity" },
+					Properties =
+					{
+						["item"] = new() { Type = JsonSchemaType.String, Enum = ItemEnum(Main.Bot.Inventory.Inventory, item => item.canBeShipped())},
+						["quantity"] = new()
+						{
+							Type = JsonSchemaType.Integer,
+						}
+					}
+				}
 			}
 		}
 	};
-	protected override ExecutionResult Validate(ActionData actionData, out List<Item>? resultData)
+	protected override ExecutionResult Validate(ActionData actionData, out KeyValuePair<List<Item>,List<int>> resultData)
 	{
-		JArray? itemNames = actionData.Data?.Value<JArray>("items");
+		object? itemNames = actionData.Data?.Value<object>("items");
 
 		resultData = new();
 		if (itemNames is null) return ExecutionResult.Failure($"You cannot provide a null value");
-		List<string> names = new();
-		foreach (var itemName in itemNames)
+		
+		if (!SchemaToItemJson(itemNames, out List<ItemJson> items, out var e))
 		{
-			string? s = itemName.Value<string>();
-			if (s is null) return ExecutionResult.Failure($"You provided an invalid value.");
-			names.Add(s);
+			return ExecutionResult.Failure(
+				$"You provided invalid json, look at this error message and think about the many mistakes" +
+				$" you have made in your life to get to this point. {e}");
 		}
 		
-		List<Item> items = new();
-		foreach (var item in Main.Bot.Inventory.Inventory.Where(item => item is not null && names.Contains(item.DisplayName)))
+		resultData = new(new(), new());
+		var jsonItems = EnumToItem(Main.Bot.Inventory.Inventory, items.Select(json => json.Item).ToList());
+		foreach (var item in Main.Bot.Inventory.Inventory)
 		{
-			if (items.Contains(item)) continue;
-			items.Add(item);
-		}
-		if (!items.Any()) return ExecutionResult.Failure($"You have not provided any items");
+			if (item is null) continue;
+			for (int i = 0; i < jsonItems.Count; i++)
+			{
+				var json = jsonItems[i];
+				Logger.Info($"json item: {json.DisplayName}   count: {json.Stack}   item: {item.DisplayName}   {item.Stack}");
+				if (json.DisplayName != item.DisplayName || json.Stack > item.Stack) continue;
 
-		Logger.Info($"items count: {items.Count}");
-		resultData = items;
-		return ExecutionResult.Success();
+				resultData.Key.Add(item);
+				resultData.Value.Add(items[i].Quantity);
+			}
+		}
+
+		if (resultData.Key.Count == items.Count && resultData.Value.Count == items.Count)
+			return ExecutionResult.Success($"Adding items to the shipping bin.");
+		
+		Logger.Error($"key count: {resultData.Key.Count}  value count: {resultData.Value.Count}   item count: {items.Count}");
+		return ExecutionResult.Failure($"You are either missing certain items or you have provided a higher quantity than the item actually has.");
 	}
 
-	protected override async void Execute(List<Item>? resultData)
+	protected override async void Execute(KeyValuePair<List<Item>,List<int>> resultData)
 	{
 		try
 		{
-			if (resultData is null || !resultData.Any()) return;
 			var dictionary = ClosestShippingBin(Main.Bot._farmer.TilePoint,
 				Main.Bot.ShippingBinInteraction.GetShippingBinsInLocation(Main.Bot._currentLocation));
 			int lowestIndex = 0;
@@ -75,7 +95,7 @@ public class UseShippingBin : NeuroAction<List<Item>>
 			}
 			ShippingBin shippingBin = dictionary[lowestIndex].Dequeue();
 		
-			await Main.Bot.Pathfinding.Goto(new Goal.GoalNearby(shippingBin.tileX.Value, shippingBin.tileY.Value, 1));
+			await TileUtilities.PathfindToObject(new Point(shippingBin.tileX.Value,shippingBin.tileY.Value));
 			await TaskDispatcher.SwitchToMainThread();
 			Main.Bot.ShippingBinInteraction.OpenBin(shippingBin);
 			// if the farmer is not facing will not open so double check if the menu appears
@@ -92,9 +112,14 @@ public class UseShippingBin : NeuroAction<List<Item>>
 				RegisterMainActions.RegisterPostAction();
 				return;
 			}
+
+			for (int i = 0; i < resultData.Key.Count; i++)
+			{
+				Main.Bot.ShippingBinInteraction.AddItemAmount(resultData.Key[i],resultData.Value[i]);
+				await Util.WaitForSeconds(0.3);
+			}
 			
-			Main.Bot.ShippingBinInteraction.ShipMultipleItems(resultData.ToArray());
-			await Util.WaitForSeconds(5);
+			await Util.WaitForSeconds(2);
 			// actions get registered when exiting menu.
 			Main.Bot.ShippingBinInteraction.RemoveMenu();
 		}

@@ -101,4 +101,21 @@ public static class TileUtilities
 	{
 		return Main.Bot._currentLocation.isActionableTile(tile.X, tile.Y, Main.Bot._farmer);
 	}
+
+	public static async Task PathfindToObject(Object obj)
+	{
+		await TaskDispatcher.SwitchToMainThread();
+		Point point = obj.TileLocation.ToPoint();
+		await PathfindToObject(point);
+	}
+
+	public static async Task PathfindToObject(Point tile)
+	{
+		await Main.Bot.Pathfinding.Goto(new Goal.GetToTile(tile.X, tile.Y));
+		await Util.WaitForSeconds(0.1);
+		
+		Graph.IsInNeighbours(Main.Bot._farmer.TilePoint, tile, out var direction, 4);
+		if (direction == -1) return;
+		Main.Bot.Player.ChangeFacingDirection(direction);
+	}
 }

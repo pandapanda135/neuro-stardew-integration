@@ -3,7 +3,6 @@ using Netcode;
 using NeuroStardewValley.Debug;
 using StardewValley;
 using StardewValley.Buildings;
-using StardewValley.Network;
 using StardewValley.TerrainFeatures;
 using StardewValley.TokenizableStrings;
 using Object = StardewValley.Object;

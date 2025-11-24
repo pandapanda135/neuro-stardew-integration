@@ -237,7 +237,8 @@ public static class TileContext
     }
     
     /// <summary>
-    /// The bare minimum name for an object, this is used in <see cref="GetNameAmountInLocation"/> 
+    /// The bare minimum name for an object, this is used in <see cref="GetNameAmountInLocation(Dictionary{Point,object})"/>
+    /// and it's overloads.
     /// </summary>
     /// <returns>This will return either the object name or an empty string if the object is not valid.</returns>
     public static string SimpleObjectName(object obj)

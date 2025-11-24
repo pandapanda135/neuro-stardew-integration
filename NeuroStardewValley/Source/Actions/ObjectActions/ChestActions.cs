@@ -12,6 +12,7 @@ using StardewValley;
 using StardewValley.Inventories;
 using StardewValley.Menus;
 using StardewValley.Objects;
+using static NeuroStardewValley.Source.Utilities.SchemaUtilities;
 using Object = StardewValley.Object;
 
 namespace NeuroStardewValley.Source.Actions.ObjectActions;
@@ -314,44 +315,7 @@ public static class ChestActions
 			RegisterChestActions();
 		}
 	}
-	
-	private static List<object> ItemEnum(IInventory inventory, bool addStack = false)
-	{
-		return ItemEnum(inventory.ToList(),addStack);
-	}
-	
-	private static List<object> ItemEnum(List<Item?> inventory, bool addStack = false)
-	{
-		List<object> items = new();
-		for (int i = 0; i < inventory.Count; i++)
-		{
-			Item? item = inventory[i];
-			if (item is null) continue;
-			items.Add($"{i}: {item.DisplayName}{(addStack ? $" amount: {item.Stack}" : string.Empty)}");
-		}
 
-		return items;
-	}
-
-	private static List<Item> EnumToItem(IInventory inventory,List<string> select) => EnumToItem(inventory.GetRange(0,inventory.Count).ToList(), select);
-	
-	private static List<Item> EnumToItem(List<Item?> inventory,List<string> select)
-	{
-		List<Item> items = new();
-		foreach (var str in select)
-		{
-			for (int i = 0; i < inventory.Count; i++)
-			{
-				if (inventory[i] is null || str != $"{i}: {inventory[i]?.DisplayName}") continue;
-
-				items.Add(inventory[i]!);
-				break;
-			}
-		}
-			
-		return items;
-	}
-	
 	public static void RegisterChestActions()
 	{
 		Logger.Info($"registering chest actions");
@@ -367,17 +331,6 @@ public static class ChestActions
 		window.Register();
 	}
 
-	private struct ItemJson
-	{
-		public ItemJson(string item, int quantity)
-		{
-			Item = item;
-			Quantity = quantity;
-		}
-			
-		public readonly string Item;
-		public readonly int Quantity;
-	}
 	public class TakeItemFromChest : NeuroAction<Dictionary<Chest, List<Item>>>
 	{
 		public override string Name => "take_items_to_chest";
@@ -397,7 +350,7 @@ public static class ChestActions
 						Required = { "item", "quantity" },
 						Properties =
 						{
-							["item"] = new() { Type = JsonSchemaType.String, Enum = GetItemsFromChest().Values.SelectMany(inv => ItemEnum(inv,true)).ToList()},
+							["item"] = new() { Type = JsonSchemaType.String, Enum = GetItemsFromChest().Values.SelectMany(inv => ItemEnum(inv,null,true)).ToList()},
 							["quantity"] = new()
 							{
 								Type = JsonSchemaType.Integer
@@ -416,23 +369,9 @@ public static class ChestActions
 			{
 				return ExecutionResult.Failure($"You provided an invalid value.");
 			}
-
-			List<ItemJson> items = new();
-			try
+			
+			if (!SchemaToItemJson(itemIndex, out var items, out var e))
 			{
-				foreach (var kvp in (JArray)itemIndex)
-				{
-					string? itemStr = kvp.Value<string>("item");
-					int? quantity = kvp.Value<int>("quantity");
-					if (itemStr is null || quantity is null) continue;
-					var itemJson = new ItemJson(itemStr,quantity.Value);
-					items.Add(itemJson);
-					Logger.Info($"kvp 1: {kvp}     item json: {itemJson.Item}  {itemJson.Quantity}");
-				}
-			}
-			catch (Exception e)
-			{
-				Logger.Error($"{e}");
 				return ExecutionResult.Failure(
 					$"You provided invalid json, look at this error message and think about the many mistakes" +
 					$" you have made in your life to get to this point. {e}");
@@ -476,7 +415,7 @@ public static class ChestActions
 
 			if (validItems.Any(kvp => !InventoryUtils.CanFitAmount(kvp.Value)))
 			{
-				return ExecutionResult.Failure($"You cannot fit certain items in your inventory.");
+				return ExecutionResult.Failure($"You are either missing certain items or you have provided a higher quantity than the item actually has.");
 			}
 			
 			resultData = validItems;
@@ -497,7 +436,7 @@ public static class ChestActions
 					if (Game1.activeClickableMenu is ItemGrabMenu && chest != previousChest) Main.Bot.Chest.CloseChest();
 					previousChest = chest;
 					
-					await PathfindToChest(chest);
+					await TileUtilities.PathfindToObject(chest);
 					await Util.WaitForSeconds(0.3);
 					Main.Bot.Chest.OpenChest(chest);
 					await Util.WaitForSeconds(0.3);
@@ -580,27 +519,13 @@ public static class ChestActions
 				return ExecutionResult.Failure($"There are no chests in this location, so this action should not be registered." +
 				                               $" That means the developer of this integration is stupid :(");
 
-			List<ItemJson> items = new();
-			try
+			if (!SchemaToItemJson(itemIndex, out var items, out var e))
 			{
-				foreach (var kvp in (JArray)itemIndex)
-				{
-					string? itemStr = kvp.Value<string>("item");
-					int? quantity = kvp.Value<int>("quantity");
-					if (itemStr is null || quantity is null) continue;
-					var itemJson = new ItemJson(itemStr,quantity.Value);
-					items.Add(itemJson);
-					Logger.Info($"kvp 1: {kvp}     item json: {itemJson.Item}  {itemJson.Quantity}");
-				}
-			}
-			catch (Exception e)
-			{
-				Logger.Error($"{e}");
 				return ExecutionResult.Failure(
 					$"You provided invalid json, look at this error message and think about the many mistakes" +
 					$" you have made in your life to get to this point. {e}");
 			}
-
+			
 			resultData = new(new(), new());
 			var jsonItems = EnumToItem(Main.Bot.Inventory.Inventory, items.Select(json => json.Item).ToList());
 			foreach (var item in Main.Bot.Inventory.Inventory)
@@ -621,7 +546,7 @@ public static class ChestActions
 				return ExecutionResult.Success($"Adding items to the nearest chests.");
 			
 			Logger.Error($"key count: {resultData.Key.Count}  value count: {resultData.Value.Count}   item count: {items.Count}");
-			return ExecutionResult.Failure($"You are missing certain items.");
+			return ExecutionResult.Failure($"You are either missing certain items or you have provided a higher quantity than the item actually has.");
 		}
 
 		protected override async void Execute(KeyValuePair<List<Item>, List<int>> resultData)
@@ -666,7 +591,7 @@ public static class ChestActions
 					
 					if (previousChest is not null && previousChest.TileLocation != chest.TileLocation)
 					{
-						// TODO: figure out how to block actions from being registered
+						RegisterMainActions.BlockRegistering = true;
 						Main.Bot.Chest.CloseChest();
 					}
 
@@ -678,7 +603,7 @@ public static class ChestActions
 						continue;
 					}
 			
-					await PathfindToChest(chest);
+					await TileUtilities.PathfindToObject(chest);
 					await Util.WaitForSeconds(0.3);
 					Main.Bot.Chest.OpenChest(chest);
 					await Util.WaitForSeconds(0.3);	
@@ -699,18 +624,6 @@ public static class ChestActions
 				RegisterMainActions.RegisterPostAction();
 			}
 		}
-	}
-
-	private static async Task PathfindToChest(Chest chest)
-	{
-		await TaskDispatcher.SwitchToMainThread();
-		Point point = chest.TileLocation.ToPoint();
-		await Main.Bot.Pathfinding.Goto(new Goal.GetToTile(point.X, point.Y));
-		await Util.WaitForSeconds(0.1);
-		
-		Graph.IsInNeighbours(Main.Bot._farmer.TilePoint, point, out var direction, 4);
-		if (direction == -1) return;
-		Main.Bot.Player.ChangeFacingDirection(direction);
 	}
 
 	private static List<Chest> GetNearestChests()

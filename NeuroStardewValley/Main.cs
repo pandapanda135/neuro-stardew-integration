@@ -80,8 +80,22 @@ internal sealed class Main : Mod
             helper.Events.Input.ButtonPressed += InputOnButtonPressed;
         }
     }
+    
+    private static void GameLaunched(object? sender, GameLaunchedEventArgs e)
+    {
+        try
+        {
+            if (string.IsNullOrEmpty(Config.WebsocketUri)) throw new Exception($"UriString was not set correctly");
+            NeuroSDKCsharp.SdkSetup.Initialize(GameInstance,"Stardew Valley",Config.WebsocketUri);
+        }
+        catch (Exception exception)
+        {
+            Console.WriteLine(exception);
+            throw;
+        }
+    }
 
-    private void InputOnButtonPressed(object? sender, ButtonPressedEventArgs e)
+    private static void InputOnButtonPressed(object? sender, ButtonPressedEventArgs e)
     {
         switch (e.Button)
         {
@@ -153,24 +167,11 @@ internal sealed class Main : Mod
                 break;
         }
     }
-
-    private void GameLaunched(object? sender, GameLaunchedEventArgs e)
-    {
-        try
-        {
-            if (string.IsNullOrEmpty(Config.WebsocketUri)) throw new Exception($"UriString was not set correctly");
-            NeuroSDKCsharp.SdkSetup.Initialize(GameInstance,"Stardew Valley",Config.WebsocketUri);
-        }
-        catch (Exception exception)
-        {
-            Console.WriteLine(exception);
-            throw;
-        }
-    }
+    
     private int _mainMenuTimer;
     private static bool _blockAutomation;
     
-    private static bool _hasSentCharacter;
+    private static bool _openedCustomizer;
     
     private int _registerTimer;
     private Vector2 _lastPlayerPos;
@@ -232,13 +233,13 @@ internal sealed class Main : Mod
             }
         }
 
-        if (TitleMenu.subMenu is not null || _hasSentCharacter || !Config.AllowCharacterCreation) return;
+        if (TitleMenu.subMenu is not null || _openedCustomizer || !Config.AllowCharacterCreation) return;
         
         Bot.MainMenuNavigation.GotoCreateNewCharacter();
 
         if (TitleMenu.subMenu is not CharacterCustomization) return;
         
-        _hasSentCharacter = true;
+        _openedCustomizer = true;
         Bot.CharacterCreation.SetCreator((CharacterCustomization)TitleMenu.subMenu);
         MainMenuActions.RegisterAction();
     }

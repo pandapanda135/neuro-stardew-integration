@@ -67,7 +67,10 @@ public static class RegisterMainActions
 			window.AddAction(new QuestLogActions.OpenLog());
 		}
 
-		if (Main.Bot._farmer.CanEmote()) window.AddAction(new ChatActions.UseEmote());
+		if (Main.Bot._farmer.CanEmote())
+		{
+			window.AddAction(new ChatActions.UseEmote()).AddAction(new ChatActions.SendChatMessage());
+		}
 	}
 
 	private static void RegisterToolActions(ActionWindow window, BotWarpedEventArgs? e = null,GameLocation? location = null)
@@ -117,20 +120,17 @@ public static class RegisterMainActions
 	private static void RegisterLocationActions(ActionWindow window,GameLocation location)
 	{
 		bool madeChestAction = false;
-		foreach (var dict in location.Objects)
+		foreach (var kvp in location.Objects.Pairs)
 		{
-			foreach (var kvp in dict)
+			switch (kvp.Value)
 			{
-				switch (kvp.Value)
-				{
-					case Chest:
-						if (!madeChestAction && Game1.activeClickableMenu is null)
-						{
-							window.AddAction(new ChestActions.OpenChest());
-							madeChestAction = true;
-						}
-						break;
-				}
+				case Chest:
+					if (!madeChestAction && Game1.activeClickableMenu is null)
+					{
+						window.AddAction(new ChestActions.OpenChest());
+						madeChestAction = true;
+					}
+					break;
 			}
 		}
 		
@@ -169,8 +169,18 @@ public static class RegisterMainActions
 
 	#endregion
 
+	/// <summary>
+	/// When <see cref="RegisterPostAction"/> is ran next if this is true registering will be blocked then this will be set back to false.
+	/// </summary>
+	public static bool BlockRegistering { get; set; }
 	public static void RegisterPostAction(BotWarpedEventArgs? e = null,int afterSeconds = 0,string query = "",string state = "",bool? ephemeral = null)
 	{
+		if (BlockRegistering)
+		{
+			BlockRegistering = false;
+			return;
+		}
+		
 		if (Main.Bot._farmer.IsSitting())
 		{
 			var actionWindow = ActionWindow.Create(Main.GameInstance);

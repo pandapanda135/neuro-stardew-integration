@@ -72,6 +72,12 @@ public static class MainGameLoopEvents
 				return;
 		}
 
+		if (RegisterMainActions.BlockRegistering)
+		{
+			RegisterMainActions.BlockRegistering = false;
+			return;
+		}
+
 		switch (e.NewMenu)
 		{
 			case CharacterCustomization customization:
