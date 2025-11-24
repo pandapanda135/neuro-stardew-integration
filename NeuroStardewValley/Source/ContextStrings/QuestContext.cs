@@ -1,4 +1,5 @@
-using NeuroSDKCsharp.Messages.Outgoing;
+using NeuroStardewValley.Debug;
+using NeuroStardewValley.Source.Utilities;
 using StardewValley.Quests;
 
 namespace NeuroStardewValley.Source.ContextStrings;
@@ -44,5 +45,62 @@ public static class QuestContext
 	public static string GetQuestTitles()
 	{
 		return Main.Bot.QuestLog.Quests.Aggregate("", (current, quest) => string.Concat(current, $"\n{quest.questTitle}"));
+	}
+
+	public static async Task GetQuestsRewards()
+	{
+		if (Main.Bot.QuestLog.Quests.All(quest => !quest.completed.Value)) return;
+		
+		await Util.WaitForSeconds(1);
+		Main.Bot.QuestLog.OpenLog();
+		if (Main.Bot.QuestLog.PageQuests is null || Main.Bot.QuestLog.CurrentPage is null)
+		{
+			Main.Bot.QuestLog.CloseLog();
+			return;
+		}
+		
+		await Util.WaitForSeconds(1);
+		for (int pageI = 0; pageI < Main.Bot.QuestLog.PageQuests.Count; pageI++)
+		{
+			Logger.Info($"page I: {pageI}   current page: {Main.Bot.QuestLog.CurrentPage}");
+			var page = Main.Bot.QuestLog.PageQuests[pageI];
+			for (int i = 0; i < page.Count; i++)
+			{
+				// I feel increasing this will cause issues in the future, but I hope not.
+				i++;
+				if (Main.Bot.QuestLog.InQuestSubMenu) Main.Bot.QuestLog.CloseQuest();
+				
+				Logger.Info($"quest: {page[i].GetName()}  {page[i].GetDescription()}   i: {i}");
+				if (!page[i].ShouldDisplayAsComplete()) continue;
+				// I have not tested this code, hope it works :)
+				if (Main.Bot.QuestLog.CurrentPage != pageI)
+				{
+					if (Main.Bot.QuestLog.CurrentPage > pageI)
+					{
+						for (int left = (int)Main.Bot.QuestLog.CurrentPage - pageI; left > 0; left--)
+						{
+							Main.Bot.QuestLog.BackLeftPage();
+						}
+					}
+					else
+					{
+						for (int right = pageI - (int)Main.Bot.QuestLog.CurrentPage; right > 0; right--)
+						{
+							Main.Bot.QuestLog.ForwardRightPage();
+						}
+					}
+
+					await Util.WaitForSeconds(1);
+				}
+			
+				await Util.WaitForSeconds(0.5);
+				Main.Bot.QuestLog.OpenQuestIndex(i + 1);
+				await Util.WaitForSeconds(0.5);
+				Main.Bot.QuestLog.GetReward();
+			}	
+		}
+
+		await Util.WaitForSeconds(1);
+		Main.Bot.QuestLog.CloseLog();
 	}
 }

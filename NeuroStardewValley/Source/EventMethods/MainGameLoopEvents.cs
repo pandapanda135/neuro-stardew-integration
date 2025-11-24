@@ -244,12 +244,29 @@ public static class MainGameLoopEvents
 
 	#region ContextEvents
 
-	public static void OnDayStarted(object? sender, BotDayStartedEventArgs e)
+	public static async void OnDayStarted(object? sender, BotDayStartedEventArgs e)
 	{
-		Context.Send(NewDayContext());
-		AlgorithmBase.IPathing pathing = new AStar.Pathing();
-		// stop ugly stuttering
-		pathing.BuildCollisionMap(Main.Bot._currentLocation);
+		try
+		{
+			await TaskDispatcher.SwitchToMainThread();
+			Context.Send(NewDayContext());
+			// should stop stuttering when pathfinding for the first time as collisions take the most time.
+			AlgorithmBase.IPathing pathing = new AStar.Pathing();
+			pathing.BuildCollisionMap(Main.Bot._currentLocation);
+			
+			// foreach (var quest in Main.Bot.QuestLog.Quests)
+			// {
+			// 	quest.questComplete();
+			// }
+			
+			// we check if any quests are complete in here
+			await QuestContext.GetQuestsRewards();
+		}
+		catch (Exception exception)
+		{
+			await TaskDispatcher.SwitchToMainThread();
+			Logger.Error($"{exception}");
+		}
 	}
 
 	public static void OnDayEnded(object? sender, BotDayEndedEventArgs e)

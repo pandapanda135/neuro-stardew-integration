@@ -1,6 +1,5 @@
-using NeuroSDKCsharp.Actions;
 using NeuroSDKCsharp.Messages.Outgoing;
-using NeuroStardewValley.Source.Actions;
+using NeuroStardewValley.Debug;
 using NeuroStardewValley.Source.RegisterActions;
 using NeuroStardewValley.Source.Utilities;
 using StardewBotFramework.Source.Events.EventArgs;
@@ -38,31 +37,38 @@ public static class LessImportantEvents
 
 	public static void OnChatMessage(object? sender, ChatMessageReceivedEventArgs e)
 	{
-		string query;
+		if (e.IsBot) return;
+		
+		string message;
 		switch (e.ChatKind) // magic number are from the game not me :(
 		{
+			case -1: // This is for messages add to the chat box via ChatBox.addMessage
+				message = $"In Stardew Valley, a message saying {e.Message} has appeared in chat.";
+				break;
 			case 0: // normal public message
-				query = $"In Stardew Valley, {e.PlayerName} has said {e.Message} in public chat." +
+				message = $"In Stardew Valley, {e.PlayerName} has said {e.Message} in public chat." +
 				        $" You can use the action to talk back to them if you want";
 				break;
 			case 1:
-				return;
+				Logger.Error($"error message in OnChatMessage: {e.Message}   chat kind: {e.ChatKind}");
+				message = $"There was an error message in the in-game chat: {e.Message}";
+				break;
 			case 2: // notification
-				query = $"In Stardew Valley, {e.PlayerName} has said {e.Message} in public chat." +
+				message = $"In Stardew Valley, {e.PlayerName} has said {e.Message} in public chat." +
 				        $" You can use the action to talk back to them if you want";
 				break;
 			case 3: // private
-				query = $"In Stardew Valley, {e.PlayerName} has said {e.Message} to you in a private message." +
+				message = $"In Stardew Valley, {e.PlayerName} has said {e.Message} to you in a private message." +
 				        $" You can use the action to talk back to them if you want";
 				break;
 			default:
+				Logger.Warning($"There was a chat message that was outside of the bounds of chat kind." +
+				               $" chat kind: {e.ChatKind} message: {e.Message}");
 				return;
 		}
 
-		ActionWindow.Create(Main.GameInstance)
-			.SetForce(0, query, "")
-			.AddAction(new ChatActions.SendChatMessage())
-			.Register();
+		// probably don't want her talking about private messages.
+		Context.Send($"{message}", e.ChatKind == 3);
 	}
 	public static void InventoryChanged(object? sender, BotInventoryChangedEventArgs e)
 	{

@@ -73,7 +73,7 @@ public static class QuestLogActions
 
 			for (int i = 0; i < pageFlips; i++)
 			{
-				Main.Bot.QuestLog.NextRightPage();
+				Main.Bot.QuestLog.ForwardRightPage();
 			}
 
 			Main.Bot.QuestLog.OpenQuestIndex(resultData - pageFlips * QuestLog.questsPerPage);
