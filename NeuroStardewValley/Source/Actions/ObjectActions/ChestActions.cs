@@ -525,23 +525,9 @@ public static class ChestActions
 					$"You provided invalid json, look at this error message and think about the many mistakes" +
 					$" you have made in your life to get to this point. {e}");
 			}
-			
-			resultData = new(new(), new());
 			var jsonItems = EnumToItem(Main.Bot.Inventory.Inventory, items.Select(json => json.Item).ToList());
-			foreach (var item in Main.Bot.Inventory.Inventory)
-			{
-				if (item is null) continue;
-				for (int i = 0; i < jsonItems.Count; i++)
-				{
-					var json = jsonItems[i];
-					Logger.Info($"json item: {json.DisplayName}   count: {json.Stack}   item: {item.DisplayName}   {item.Stack}");
-					if (json.DisplayName != item.DisplayName || json.Stack > item.Stack) continue;
-
-					resultData.Key.Add(item);
-					resultData.Value.Add(items[i].Quantity);
-				}
-			}
-
+			resultData = ItemJsonToItem(items, Main.Bot.Inventory.Inventory, jsonItems);
+			
 			if (resultData.Key.Count == items.Count && resultData.Value.Count == items.Count)
 				return ExecutionResult.Success($"Adding items to the nearest chests.");
 			

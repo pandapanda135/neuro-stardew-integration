@@ -49,7 +49,7 @@ public class UseShippingBin : NeuroAction<KeyValuePair<List<Item>,List<int>>>
 		resultData = new();
 		if (itemNames is null) return ExecutionResult.Failure($"You cannot provide a null value");
 		
-		if (!SchemaToItemJson(itemNames, out List<ItemJson> items, out var e))
+		if (!SchemaToItemJson(itemNames, out List<ItemJson> jsons, out var e))
 		{
 			return ExecutionResult.Failure(
 				$"You provided invalid json, look at this error message and think about the many mistakes" +
@@ -57,25 +57,13 @@ public class UseShippingBin : NeuroAction<KeyValuePair<List<Item>,List<int>>>
 		}
 		
 		resultData = new(new(), new());
-		var jsonItems = EnumToItem(Main.Bot.Inventory.Inventory, items.Select(json => json.Item).ToList());
-		foreach (var item in Main.Bot.Inventory.Inventory)
-		{
-			if (item is null) continue;
-			for (int i = 0; i < jsonItems.Count; i++)
-			{
-				var json = jsonItems[i];
-				Logger.Info($"json item: {json.DisplayName}   count: {json.Stack}   item: {item.DisplayName}   {item.Stack}");
-				if (json.DisplayName != item.DisplayName || json.Stack > item.Stack) continue;
-
-				resultData.Key.Add(item);
-				resultData.Value.Add(items[i].Quantity);
-			}
-		}
-
-		if (resultData.Key.Count == items.Count && resultData.Value.Count == items.Count)
+		var enumItems = EnumToItem(Main.Bot.Inventory.Inventory, jsons.Select(json => json.Item).ToList());
+		resultData = ItemJsonToItem(jsons, Main.Bot.Inventory.Inventory.ToList(), enumItems);
+		
+		if (resultData.Key.Count == jsons.Count && resultData.Value.Count == jsons.Count)
 			return ExecutionResult.Success($"Adding items to the shipping bin.");
 		
-		Logger.Error($"key count: {resultData.Key.Count}  value count: {resultData.Value.Count}   item count: {items.Count}");
+		Logger.Error($"key count: {resultData.Key.Count}  value count: {resultData.Value.Count}   item count: {jsons.Count}");
 		return ExecutionResult.Failure($"You are either missing certain items or you have provided a higher quantity than the item actually has.");
 	}
 

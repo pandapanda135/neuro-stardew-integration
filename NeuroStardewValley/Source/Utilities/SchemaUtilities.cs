@@ -47,35 +47,58 @@ public static class SchemaUtilities
 		jsons = items;
 		return true;
 	}
-	
-	public static List<object> ItemEnum(IInventory inventory, Func<Item,bool>? itemCheck = null, bool addStack = false)
+
+	public static KeyValuePair<List<Item>, List<int>> ItemJsonToItem(List<ItemJson> jsons, IInventory inventory, List<Item> enumItems)
 	{
-		return ItemEnum(inventory.ToList(), itemCheck,addStack);
+		return ItemJsonToItem(jsons, inventory.ToList(), enumItems);
 	}
 	
-	public static List<object> ItemEnum(List<Item?> inventory, Func<Item,bool>? itemCheck = null, bool addStack = false)
+	public static KeyValuePair<List<Item>, List<int>> ItemJsonToItem(List<ItemJson> jsons, List<Item?> inventory, List<Item> enumItems)
+	{
+		KeyValuePair<List<Item>,List<int>> result = new(new(),new());
+		foreach (var item in inventory.OfType<Item>())
+		{
+			for (int i = 0; i < jsons.Count; i++)
+			{
+				var json = enumItems[i];
+				Logger.Info($"json item: {json.DisplayName}   count: {json.Stack}   item: {item.DisplayName}   {item.Stack}");
+				if (json.DisplayName != item.DisplayName || json.Stack > item.Stack) continue;
+
+				result.Key.Add(item);
+				result.Value.Add(jsons[i].Quantity);
+			}
+		}
+
+		return result;
+	}
+	
+	public static List<object> ItemEnum(IInventory inventory, Func<Item,bool>? itemCheck = null, bool addStack = false, bool addIndex = true)
+		=> ItemEnum(inventory.ToList(), itemCheck,addStack, addIndex);
+	
+	public static List<object> ItemEnum(List<Item?> inventory, Func<Item,bool>? itemCheck = null, bool addStack = false, bool addIndex = true)
 	{
 		List<object> items = new();
 		for (int i = 0; i < inventory.Count; i++)
 		{
 			Item? item = inventory[i];
 			if (item is null || (itemCheck != null && !itemCheck(item))) continue;
-			items.Add($"{i}: {item.DisplayName}{(addStack ? $" amount: {item.Stack}" : string.Empty)}");
+			items.Add($"{(addIndex ? $"{i}: " : "")}{item.DisplayName}{(addStack ? $" amount: {item.Stack}" : string.Empty)}");
 		}
 
 		return items;
 	}
 	
-	public static List<Item> EnumToItem(IInventory inventory,List<string> select) => EnumToItem(inventory.GetRange(0,inventory.Count).ToList(), select);
+	public static List<Item> EnumToItem(IInventory inventory,List<string> select, bool checkStack = false, bool checkIndex = true) =>
+		EnumToItem(inventory.GetRange(0,inventory.Count).ToList(), select, checkStack, checkIndex);
 	
-	public static List<Item> EnumToItem(List<Item?> inventory,List<string> select)
+	public static List<Item> EnumToItem(List<Item?> inventory,List<string> select, bool checkStack = false, bool checkIndex = true)
 	{
 		List<Item> items = new();
 		foreach (var str in select)
 		{
 			for (int i = 0; i < inventory.Count; i++)
 			{
-				if (inventory[i] is null || str != $"{i}: {inventory[i]?.DisplayName}") continue;
+				if (inventory[i] is null || str != $"{(checkIndex ? $"{i}: " : "")}{inventory[i]?.DisplayName}{(checkStack ? $" amount: {inventory[i]?.Stack}" : "")}") continue;
 
 				items.Add(inventory[i]!);
 				break;
