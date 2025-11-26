@@ -31,7 +31,7 @@ public class PickupItems : NeuroAction<KeyValuePair<List<Item>,List<int>>>
 						["item"] = new()
 						{
 							Type = JsonSchemaType.String,
-							Enum = SchemaUtilities.ItemEnum(Main.Bot.Debris.Debris.Select(Item? (debris) => debris.item).ToList(), null , true)
+							Enum = GetItemSchema()
 						},
 						["quantity"] = new()
 						{
@@ -52,14 +52,14 @@ public class PickupItems : NeuroAction<KeyValuePair<List<Item>,List<int>>>
 			return ExecutionResult.Failure($"");
 		}
 		
-		if (!SchemaUtilities.SchemaToItemJson(items, out var jsons, out var e))
+		if (!SchemaUtilities.SchemaToItemJson(items, out var jsons, out var e) || !jsons.Any())
 		{
 			Logger.Error($"Error in pick up validation {e}");
 			return ExecutionResult.Failure($"There was an issue with parsing the json you provided: {e}");
 		}
 
 		var enumItems = SchemaUtilities.EnumToItem(Main.Bot.Debris.Debris.Select(Item? (debris) =>
-			debris.item).ToList(), jsons.Select(json => json.Item).ToList(), true);
+			debris.item).ToList(), jsons.Select(json => json.Item).ToList(), false, false);
 		resultData = SchemaUtilities.ItemJsonToItem(jsons,
 			Main.Bot.Debris.Debris.Select(Item? (debris) => debris.item).ToList(), enumItems);
 		
@@ -73,37 +73,67 @@ public class PickupItems : NeuroAction<KeyValuePair<List<Item>,List<int>>>
 	{
 		try
 		{
+			Dictionary<Item, List<Debris>> nearestDebris = new();
 			foreach (var debris in Main.Bot.Debris.Debris)
 			{
-				for (int i = 0; i < resultData.Key.Count; i++)
+				foreach (var item in resultData.Key)
 				{
-					Item item = resultData.Key[i];
-					int quantity = resultData.Value[i];
 					// we check this as we could pick up by being in range
 					if (debris is null || debris.item.ItemId != item.ItemId) continue;
-					List<Item> items;
-					int? startingAmount = null;
-					if (quantity > debris.item.Stack)
-					{
-						items = Main.Bot.Inventory.Inventory.Where(it => it is not null && it.ItemId == item.ItemId).ToList();
-						startingAmount = items.Aggregate<Item, int?>(null, (current, it) => current + it.Stack) ?? null;
-					}
 					
+					if (nearestDebris.TryAdd(item, new() {debris})) continue;
+					
+					nearestDebris[item].Add(debris);
+				}
+			}
+			
+			foreach (var kvp in nearestDebris)
+			{
+				kvp.Value.Sort(SortDebris);
+			}
+			
+			for (int i = 0; i < resultData.Key.Count; i++)
+			{
+				Item item = resultData.Key[i];
+				int quantity = resultData.Value[i];
+				int? newAmount = null;
+				List<Item> items = Main.Bot.Inventory.Inventory.Where(it => it is not null && it.ItemId == item.ItemId).ToList();
+				var startingAmount = items.Aggregate<Item, int?>(null, (current, it) => current + it.Stack);
+				
+				foreach (var debris in nearestDebris[item])
+				{
+					// we check this as we could pick up debris by being in range while walking or just generally
+					if (!Main.Bot.Debris.Debris.Contains(debris) || debris.item.ItemId != item.ItemId) continue;
+					Logger.Warning($"item {item.DisplayName}   quantity: {quantity}   item stack: {debris.item.Stack}");
+					Logger.Info($"starting amount: {startingAmount}");
+				
 					await Main.Bot.Debris.PickUpDebris(debris);
-					if (startingAmount is null)
+					// we wait so it has time to move to player and enter the inventory in case the approximate position isn't amazing.
+					await Util.WaitForSeconds(0.5);
+					if (startingAmount is not null || newAmount is not null)
+					{
+						Logger.Info($"quantity is greater");
+						items = Main.Bot.Inventory.Inventory.Where(it => it is not null && it.ItemId == item.ItemId).ToList();
+						Logger.Info($"items: {items.Count}");
+						newAmount = items.Aggregate<Item, int?>(null, (current, it) => current + it.Stack);
+					}
+					// we should only run this if we know the next debris is going satisfy the wanted quantity
+					if (startingAmount is null || newAmount is null || newAmount > startingAmount + quantity)
 					{
 						await Util.WaitForSeconds(0.25);
-						continue;
+						break;
 					}
-					
-					items = Main.Bot.Inventory.Inventory.Where(it => it is not null && it.ItemId == item.ItemId).ToList();
-					int? newAmount = items.Aggregate<Item, int?>(null, (current, it) => current + it.Stack) ?? null;
-					if (newAmount is not null && newAmount >= startingAmount + quantity)
+				
+					if (newAmount >= startingAmount + quantity)
 					{
 						resultData.Key.RemoveWhere(it => it.ItemId == item.ItemId);
+						nearestDebris.Remove(item);
+						break;
 					}
 					await Util.WaitForSeconds(0.25);
 				}
+
+				RegisterMainActions.RegisterPostAction();
 			}
 		}
 		catch (Exception e)
@@ -112,5 +142,25 @@ public class PickupItems : NeuroAction<KeyValuePair<List<Item>,List<int>>>
 			Logger.Error($"Issue when picking up items {e}");
 			RegisterMainActions.RegisterPostAction();
 		}
+	}
+
+	private static List<object> GetItemSchema()
+	{
+		List<object> names = new();
+		
+		foreach (var debris in Main.Bot.Debris.Debris)
+		{
+			if (names.Contains(debris.item.DisplayName)) continue;
+			
+			names.Add(debris.item.DisplayName);
+		}
+
+		return names;
+	}
+
+	private static int SortDebris(Debris debris1, Debris debris2)
+	{
+		return Util.SortObjectsByDistance(Main.Bot.Debris.DebrisPosition(debris1.Chunks).ToPoint(),
+			Main.Bot.Debris.DebrisPosition(debris2.Chunks).ToPoint());
 	}
 }

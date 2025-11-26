@@ -1,3 +1,4 @@
+using Microsoft.Xna.Framework;
 using StardewValley;
 using Object = StardewValley.Object;
 
@@ -16,15 +17,11 @@ public static class Util
 		if (switchMainThread) await TaskDispatcher.SwitchToMainThread();
 	}
 
-	
-	public static int SortObjectsByDistance(Object obj, Object obj2)
+	public static int SortObjectsByDistance(Point tile1, Point tile2)
 	{
-		var point = obj.TileLocation.ToPoint();
-		var point1 = obj2.TileLocation.ToPoint();
 		var farmerTile = Main.Bot._farmer.TilePoint;
-
-		float distance = Utility.distance(point.X, farmerTile.X, point.Y, farmerTile.Y);
-		float distance2 = Utility.distance(point1.X, farmerTile.X, point1.Y, farmerTile.Y);
+		float distance = Utility.distance(tile1.X, farmerTile.X, tile1.Y, farmerTile.Y);
+		float distance2 = Utility.distance(tile2.X, farmerTile.X, tile2.Y, farmerTile.Y);
 
 		if (distance < distance2)
 		{
@@ -42,5 +39,10 @@ public static class Util
 		}
 
 		return 0;
+	}
+	
+	public static int SortObjectsByDistance(Object obj, Object obj2)
+	{
+		return SortObjectsByDistance(obj.TileLocation.ToPoint(), obj2.TileLocation.ToPoint());
 	}
 }
