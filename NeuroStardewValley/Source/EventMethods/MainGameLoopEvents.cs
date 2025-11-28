@@ -29,7 +29,8 @@ public static class MainGameLoopEvents
 		Main.Bot.Pathfinding.BuildCollisionMap();
 
 		if (e.Player.passedOut || Game1.eventUp) return;
-		string warps = TileContext.GetWarpTiles(e.NewLocation,true);
+		string warps = TileContext.GetWarpTiles(e.NewLocation, true , true , true);
+		Logger.Warning($"warps: {warps}");
 		string warpsString = !string.IsNullOrEmpty(warps) ? TileContext.GetWarpTilesString(warps) : "There are no warps in this location";
 		
 		string characterContext = string.Concat(Main.Bot.Characters.GetCharactersInCurrentLocation(e.NewLocation)
@@ -42,8 +43,12 @@ public static class MainGameLoopEvents
 		warpsString = warpsString.Length < 1
 			? $"There are no warps in {e.NewLocation.DisplayName} as of when you entered it"
 			: $"These are the warps to other places in {e.NewLocation.DisplayName} when you entered it: {warpsString}";
+
+		string buildingString =
+			Main.Bot._currentLocation.buildings.Any(building => building.HasIndoors())
+				? $"These are the buildings and animals in them: {string.Join("\n",GetAnimalsPerBuilding())}" : "";
 		
-		Context.Send($"{warpsString}\n{characterContext}", true);
+		Context.Send($"{warpsString}\n{characterContext}{(buildingString.Any() ? $"\n{buildingString}" : "")}", true);
 		string query =
 			$"You are at the tile {Main.Bot.Player.BotTilePosition()} facing {PlayerContext.DirectionNames[Main.Bot.Player.FacingDirection].ToLower()}," +
 			$" if you are unsure about what's around you in the world, you should use the query actions to learn more." +
@@ -323,7 +328,7 @@ public static class MainGameLoopEvents
 		Main.Bot.EndDayShippingMenu.AdvanceToNextDay();
 	}
 
-	public static string NewDayContext(bool sendQuests = true)
+	private static string NewDayContext(bool sendQuests = true)
 	{
 		string time = StringUtilities.FormatTimeString();
 		if (sendQuests) Context.Send($"These are the title's of the quests that are available, " +
@@ -350,6 +355,42 @@ public static class MainGameLoopEvents
 		                 $" {PlayerContext.GetAllSkillLevel()}.";
 		
 		return contextString;
+	}
+	
+	private static List<string> GetAnimalsPerBuilding()
+	{
+		List<string> builds = new();
+		List<string> usedBuildingTypes = new();
+		foreach (var building in Main.Bot._currentLocation.buildings.Where(building => building.HasIndoors()))
+		{
+			int amount = usedBuildingTypes.Count(str => str == building.GetIndoors().Name);
+			string str;
+			if (!building.GetIndoors().Animals.Any())
+			{
+				str = $"{StringUtilities.GetBuildingName(building)}{(amount > 0 ? $" {amount}" : "")}: Has no animals inside.";
+				usedBuildingTypes.Add(building.GetIndoors().Name);
+				builds.Add(str);
+				continue;
+			}
+
+			Dictionary<string, int> animalAmount = new();
+			foreach (var animal in building.GetIndoors().Animals.Values)
+			{
+				if (!animalAmount.TryAdd(animal.displayType, 1))
+				{
+					animalAmount[animal.displayType]++;
+				}
+			}
+
+			str = $"{StringUtilities.GetBuildingName(building)}{(amount > 0 ? $" {amount}" : "")}: ";
+			usedBuildingTypes.Add(building.GetIndoors().Name);
+
+			str = animalAmount.Aggregate(str, (current, kvp) => $"{current}{kvp.Key} amount: {kvp.Value} ");
+
+			builds.Add(str);
+		}
+
+		return builds;
 	}
 
 	#endregion

@@ -165,6 +165,11 @@ internal sealed class Main : Mod
                 Bot._farmer.setSkillLevel("Combat", 10);
                 // Bot._farmer.setSkillLevel("Farming", 10);
                 break;
+            case SButton.O:
+
+                Game1.activeClickableMenu = new CarpenterMenu("Robin", Main.Bot._currentLocation);
+                TileUtilities.BuildingContainsTile(Game1.currentCursorTile.ToPoint());
+                return;
         }
     }
     

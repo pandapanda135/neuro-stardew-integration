@@ -71,14 +71,9 @@ public static class RegisterStoreActions
 	public static void RegisterCarpenterActions()
 	{
 		ActionWindow window = ActionWindow.Create(Main.GameInstance);
-		
-		window.AddAction(new CarpenterActions.DemolishBuilding()).AddAction(new CarpenterActions.CreateBuilding())
-			.AddAction(new CarpenterActions.ChangeBuildingBlueprint());
 
-		if (Main.Bot.FarmBuilding.CarpenterMenu.Blueprint.IsUpgrade)
-		{
-			window.AddAction(new CarpenterActions.UpgradeBuilding());
-		}
+		window.AddAction(new CarpenterActions.BuildBluePrint()).AddAction(new CarpenterActions.DestroyBuilding())
+			.AddAction(new CarpenterActions.UpgradeBlueprint());
 		
 		if (Main.Bot.FarmBuilding.Building.CanBeReskinned())
 		{

@@ -130,9 +130,10 @@ public static class PathFindingActions
             // I think it is false if not specified but might as well double check
             destructive ??= false;
             
+            // this is where we get points from
             if (!_selectedWarps.TryGetValue(pointStr, out var exitPoint)) return ExecutionResult.Failure($"{pointStr} is not a valid warp.");
 
-            if (!TileContext.GetWarpsAsPoint(TileContext.GetWarpTiles(Main.Bot._currentLocation,true,true)).ContainsKey(exitPoint))
+            if (!TileContext.GetWarpsAsPoint(Main.Bot._currentLocation,true,true, true).ContainsKey(exitPoint))
             { 
                 return ExecutionResult.Failure($"The value you provided was not a valid exit.");
             }
@@ -146,7 +147,7 @@ public static class PathFindingActions
 
             // if exit point is part of building
             if (Utility.tileWithinRadiusOfPlayer(exitPoint.X, exitPoint.Y, 1, Main.Bot._farmer)
-                && !TileContext.GetWarpsAsPoint(TileContext.GetWarpTiles(Main.Bot._currentLocation))
+                && !TileContext.GetWarpsAsPoint(Main.Bot._currentLocation, false, true)
                     .ContainsKey(exitPoint))
             {
                 goal = new Goal.GoalPosition(exitPoint.X,exitPoint.Y);
@@ -155,7 +156,7 @@ public static class PathFindingActions
             
             Main.Bot.Pathfinding.BuildCollisionMapInRadius(exitPoint,3);
             if (Main.Bot.Pathfinding.IsBlocked(exitPoint.X, exitPoint.Y) &&
-                // this is here as actions need to be blocked something most of the time may have side effects that I don't know about though.
+                // this is here as actionable tiles block something most of the time, may have side effects that I don't know about though.
                 !TileUtilities.Actionable(exitPoint) && (bool)!destructive)
             {
                 return ExecutionResult.Failure("You gave a position that is blocked. Maybe try something else!");
@@ -185,7 +186,11 @@ public static class PathFindingActions
             {
                 await TaskDispatcher.SwitchToMainThread();
                 
-                if (goal is null) return; // probably fine
+                if (goal is null)
+                {
+                    RegisterMainActions.RegisterPostAction();
+                    return; // probably fine
+                }
                 Building? building = GetSurroundingBuilding(goal.VectorLocation);
                 Logger.Info($"building: {building is null}");
                 if (building is not null)
@@ -252,39 +257,43 @@ public static class PathFindingActions
         }
 
         private readonly ConcurrentDictionary<string, Point> _selectedWarps = new();
+
         private async Task<List<string>> GetPathfindExits()
         {
             await TaskDispatcher.SwitchToMainThread();
-            var warpsAsPoint = TileContext.GetWarpsAsPoint(TileContext.GetWarpTiles(Main.Bot._currentLocation,true,true));
+            var warpsAsPoint = TileContext.GetWarpsAsPoint(Main.Bot._currentLocation,true,true , true);
             Main.Bot.Pathfinding.BuildCollisionMap();
-            
+
             foreach (var warpStr in warpsAsPoint)
             {
                 Logger.Info($"kvp: {warpStr.Key}   {warpStr.Value}");
-                if (_selectedWarps.ContainsKey(warpStr.Value)) continue;
                 
+                // we only want to check for duplicates from buildings
+                if (_selectedWarps.ContainsKey(warpStr.Value) && 
+                    !TileContext.GetWarpsAsPoint(Main.Bot._currentLocation, false, true).ContainsKey(warpStr.Key)) continue;
+
                 var pathNodes = await Main.Bot.Pathfinding.GetPathTo(new Goal.GetToTile(warpStr.Key.X,warpStr.Key.Y), 2500,true,false);
                 Building? building = TileUtilities.BuildingContainsTile(warpStr.Key);
                 if (!pathNodes.Any() && !Graph.IsInNeighbours(Main.Bot._farmer.TilePoint, warpStr.Key, out _, 4) && building is null) continue;
 
-                // This does not handle multiple buildings, for animal buildings could maybe include the most populated type of animal.
-                // TODO: fix above
                 if (building is not null)
                 {
                     Logger.Info($"building: {building}");
                     if (!building.HasIndoors()) continue;
-                    
+
                     string buildingName = StringUtilities.GetBuildingName(building);
+                    AddDuplicateAmount(warpStr.Value, ref buildingName);
+
                     _selectedWarps.TryAdd(buildingName,warpStr.Key);
                     continue;
                 }
-
+                
                 // this is due to building warps and both tile warps handling greenhouse
                 if (warpStr.Value.ToLower() == "greenhouse" && !Main.Bot._farmer.mailReceived.Contains("ccPantry"))
                 {
                     continue;
                 }
-                
+
                 var location = Game1.getLocationFromName(warpStr.Value);
                 string name = warpStr.Value;
                 // this stops buildings like the greenhouse from adding the current location
@@ -292,11 +301,22 @@ public static class PathFindingActions
                 {
                     name = location.DisplayName;
                 }
-                _selectedWarps.TryAdd(name,warpStr.Key);
+                AddDuplicateAmount(warpStr.Value, ref name);
+
+                _selectedWarps.TryAdd(name, warpStr.Key);
             }
 
             return _selectedWarps.Keys.ToList();
         }
+
+        private void AddDuplicateAmount(string preFormatName, ref string postFormatName)
+        {
+            int amount = _selectedWarps.Keys.Count(preFormatName.Contains);
+            if (amount > 0)
+            {
+                postFormatName = $"{postFormatName}: {amount}";
+            }
+        } 
 
         private static Building? GetSurroundingBuilding(Point tile)
         {

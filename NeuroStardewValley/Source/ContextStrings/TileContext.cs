@@ -350,35 +350,40 @@ public static class TileContext
         return str;
     }
 
-    public static string GetWarpTiles(GameLocation location, bool addBuildings = false, bool addActionTiles = false)
+    public static string GetWarpTiles(GameLocation location, bool addProperties = true, bool addBuildings = false, bool addActionTiles = false)
     {
-        location.TryGetMapProperty("Warp", out var warps);
-        if (addBuildings) warps += GetBuildingWarps(location);
+        string? warps = "";
+        if (addProperties)
+            location.TryGetMapProperty("Warp", out warps);
 
-        if (addActionTiles) warps += GetActionWarps(true);
+        if (addBuildings) GetBuildingWarps(location, ref warps);
+
+        if (addActionTiles) GetActionWarps(true, ref warps);
         
         return warps;
     }
 
-    private static string GetBuildingWarps(GameLocation location)
+    private static bool NeedsStartingSpace(string warps)
     {
-        string warps = "";
+        return warps.Length != 0 && warps[^1] != ' ';
+    }
+
+    private static void GetBuildingWarps(GameLocation location, ref string warps)
+    {
         Logger.Info($"{location.DisplayName}  {location.buildings.Count}");
         foreach (var building in location.buildings)
         {
-            if (!building.HasIndoors() || building.getPointForHumanDoor() == new Point(-1,-1)) continue;
+            if (!building.HasIndoors() || building.getPointForHumanDoor() == new Point(-1,-1) || building.isUnderConstruction()) continue;
             
-            foreach (var warp in building.GetIndoors().warps.Where(warp => warp.TargetName == location.Name)) 
+            foreach (var warp in building.GetIndoors().warps.Where(warp => warp.TargetName == location.Name))
             {
-                warps += $" {warp.TargetX} {warp.TargetY} {building.GetIndoors().Name} {warp.X} {warp.Y}";
+                warps += $"{(NeedsStartingSpace(warps) ? " " : "")}{warp.TargetX} {warp.TargetY} {building.GetIndoors().Name} {warp.X} {warp.Y}";
             }
         }
-        return warps;
     }
     
-    private static string GetActionWarps(bool checkDoorTime)
+    private static void GetActionWarps(bool checkDoorTime, ref string warps)
     {
-        string warps = "";
         var actions = GetActionAndTile();
 
         Logger.Info($"actions amount: {actions.Count}");
@@ -388,10 +393,9 @@ public static class TileContext
             string str = ActionWarpString(kvp!,checkDoorTime);
             Logger.Info($"foreach {kvp.Key}   {kvp.Value}    str: {str}");
             if (str == "") continue;
+            if (NeedsStartingSpace(warps) && str[0] != ' ') warps = $"{warps} ";
             warps += str;
         }
-
-        return warps;
     }
 
     /// <summary>
@@ -442,6 +446,15 @@ public static class TileContext
         return "";
     }
 
+    public static Dictionary<Point, string> GetWarpsAsPoint(GameLocation location, bool includeProperties = true,
+        bool includeBuildings = false, bool includeActionTiles = false)
+    {
+        var warpTiles = GetWarpTiles(location,includeProperties,includeBuildings,includeActionTiles);
+
+        Logger.Info($"warp tiles: {warpTiles}");
+        return GetWarpsAsPoint(warpTiles);
+    }
+
     public static Dictionary<Point, string> GetWarpsAsPoint(string warps)
     {
         string[] warpExtracts = warps.Split(' ');
@@ -464,6 +477,11 @@ public static class TileContext
         var warpLocation = GetWarpsAsPoint(warpTiles);
 
         return warpLocation.Aggregate("", (current, kvp) => current + $"\n{kvp.Value}: {kvp.Key}");
+    }
+
+    public static string WarpToString(Warp warp, bool includeStartingSpace = true)
+    {
+        return $"{(includeStartingSpace ? " " : "")}{warp.TargetX} {warp.TargetY} {warp.TargetName} {warp.X} {warp.Y}";
     }
 
     public static List<string> GetWarpTilesStrings(string warpTiles)
