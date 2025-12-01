@@ -72,14 +72,19 @@ public static class RegisterStoreActions
 	{
 		ActionWindow window = ActionWindow.Create(Main.GameInstance);
 
-		window.AddAction(new CarpenterActions.BuildBluePrint()).AddAction(new CarpenterActions.DestroyBuilding())
-			.AddAction(new CarpenterActions.UpgradeBlueprint());
+		window.AddAction(new CarpenterActions.BuildBluePrint());
+
+		if (PlaceBuildingActions.SelectBuilding.GetBuildings(Game1.getFarm(), out _, CarpenterMenu.CarpentryAction.Upgrade).Any())
+			window.AddAction(new CarpenterActions.UpgradeBlueprint());
 		
-		if (Main.Bot.FarmBuilding.Building.CanBeReskinned())
-		{
-			Main.Bot.FarmBuilding.SetSkinUi(new BuildingSkinMenu(Main.Bot.FarmBuilding.Building, true));
-			window.AddAction(new CarpenterActions.ChangeBuildingSkin());	
-		}
+		if (PlaceBuildingActions.SelectBuilding.GetBuildings(Game1.getFarm(), out _, CarpenterMenu.CarpentryAction.Demolish).Any())
+			window.AddAction(new CarpenterActions.DestroyBuilding());
+		
+		// if (Main.Bot.FarmBuilding.Building.CanBeReskinned())
+		// {
+		// 	Main.Bot.FarmBuilding.SetSkinUi(new BuildingSkinMenu(Main.Bot.FarmBuilding.Building, true));
+		// 	window.AddAction(new CarpenterActions.ChangeBuildingSkin());	
+		// }
 
 		string state = "These are the possible buildings that you can either build, upgrade or demolish: ";
 		foreach (var entry in Main.Bot.FarmBuilding.CarpenterMenu.Blueprints)

@@ -46,6 +46,36 @@ public static class QuestContext
 	{
 		return Main.Bot.QuestLog.Quests.Aggregate("", (current, quest) => string.Concat(current, $"\n{quest.questTitle}"));
 	}
+	
+	public static string FormatDailyQuest(string description)
+	{
+		string formattedMessage = description;
+		char lastChar = '#';
+		int spaceRepeat = 0;
+		foreach (var c in formattedMessage) // we do this to remove the large gaps in text
+		{
+			if (c == lastChar && c == ' ')
+			{
+				spaceRepeat++;
+			}
+
+			lastChar = c;
+		}
+
+		string str = "";
+		for (int i = 0; i < spaceRepeat; i++)
+		{
+			str += " ";
+		}
+
+		if (str != "")
+		{
+			formattedMessage = formattedMessage.Replace(str, "");
+		}
+
+		return formattedMessage;
+	}
+
 
 	public static async Task GetQuestsRewards()
 	{

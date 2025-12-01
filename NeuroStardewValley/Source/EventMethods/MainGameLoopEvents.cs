@@ -204,6 +204,7 @@ public static class MainGameLoopEvents
 				break;
 			case MineElevatorMenu mineElevatorMenu:
 				Main.Bot.ElevatorMenu.SetMenu(mineElevatorMenu);
+				// I'm pretty sure the elevator can only be used if there are valid buttons 
 				ElevatorMenuActions.RegisterAction();
 				break;
 			case NamingMenu namingMenu: // works for naming horses and placing signs
@@ -357,17 +358,17 @@ public static class MainGameLoopEvents
 		return contextString;
 	}
 	
-	private static List<string> GetAnimalsPerBuilding()
+	public static List<string> GetAnimalsPerBuilding()
 	{
 		List<string> builds = new();
 		List<string> usedBuildingTypes = new();
 		foreach (var building in Main.Bot._currentLocation.buildings.Where(building => building.HasIndoors()))
 		{
-			int amount = usedBuildingTypes.Count(str => str == building.GetIndoors().Name);
+			int buildingAmount = usedBuildingTypes.Count(str => str == building.GetIndoors().Name);
 			string str;
 			if (!building.GetIndoors().Animals.Any())
 			{
-				str = $"{StringUtilities.GetBuildingName(building)}{(amount > 0 ? $" {amount}" : "")}: Has no animals inside.";
+				str = $"{StringUtilities.GetBuildingName(building)}{(buildingAmount > 0 ? $" {buildingAmount}" : "")}: Has no animals inside.";
 				usedBuildingTypes.Add(building.GetIndoors().Name);
 				builds.Add(str);
 				continue;
@@ -382,7 +383,7 @@ public static class MainGameLoopEvents
 				}
 			}
 
-			str = $"{StringUtilities.GetBuildingName(building)}{(amount > 0 ? $" {amount}" : "")}: ";
+			str = $"{StringUtilities.GetBuildingName(building)}{(buildingAmount > 0 ? $" {buildingAmount}" : "")}: ";
 			usedBuildingTypes.Add(building.GetIndoors().Name);
 
 			str = animalAmount.Aggregate(str, (current, kvp) => $"{current}{kvp.Key} amount: {kvp.Value} ");

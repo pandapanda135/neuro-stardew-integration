@@ -4,6 +4,7 @@ using NeuroSDKCsharp.Json;
 using NeuroSDKCsharp.Websocket;
 using NeuroStardewValley.Debug;
 using NeuroStardewValley.Source.ContextStrings;
+using NeuroStardewValley.Source.EventMethods;
 using NeuroStardewValley.Source.RegisterActions;
 using NeuroStardewValley.Source.Utilities;
 using StardewValley;
@@ -312,7 +313,7 @@ public static class CarpenterActions
 			try
 			{
 				Main.Bot.FarmBuilding.ChangeBuilding(Main.Bot.FarmBuilding.CarpenterMenu.Blueprints.First(entry => Main.Bot.FarmBuilding.CanDestroyBluePrint(entry)));
-				await Util.WaitForSeconds(2);
+				await Util.WaitForSeconds(1);
 				Main.Bot.FarmBuilding.LeftClick(Main.Bot.FarmBuilding.CarpenterMenu.demolishButton);
 				await PlaceBuildingActions.RegisterPlaceBuilding(true);
 			}
@@ -426,7 +427,7 @@ public static class PlaceBuildingActions
 		}
 	}
 
-	private class SelectBuilding : NeuroAction<Building>
+	public class SelectBuilding : NeuroAction<Building>
 	{
 		public override string Name => "select_building";
 		protected override string Description => $"Select a building to {Main.Bot.FarmBuilding.CarpenterMenu.Action}." +
@@ -437,33 +438,32 @@ public static class PlaceBuildingActions
 			Required = new List<string> { "building" },
 			Properties = new Dictionary<string, JsonSchema>
 			{
-				["building"] = QJS.Enum(GetSchema())
+				["building"] = QJS.Enum(GetBuildings(Main.Bot._currentLocation,out _))
 			}
 		};
 		protected override ExecutionResult Validate(ActionData actionData, out Building? resultData)
 		{
 			string? buildingStr = actionData.Data?.Value<string>("building");
 
+			resultData = null;
 			if (buildingStr is null)
-			{
-				resultData = null;
 				return ExecutionResult.Failure($"You have provided a null value in building");
-			}
 
-			Building? building = GetBuilding(buildingStr);
-			if (!GetSchema().Contains(buildingStr) || building is null)
-			{
-				resultData = null;
-				return ExecutionResult.Failure($"You have provided an invalid value in building");
-			}
+			var buildingSchemas = GetBuildings(Main.Bot._currentLocation,out var buildings);
+			int index = buildingSchemas.IndexOf(buildingStr);
+			if (index == -1) return ExecutionResult.Failure($"You have provided an invalid building.");
 			
-			if (building.buildingType.Value == Main.Bot.FarmBuilding.BlueprintEntry?.UpgradeFrom || Main.Bot.FarmBuilding.CarpenterMenu.Action == CarpenterMenu.CarpentryAction.Demolish)
+			Building building = buildings[buildingSchemas.IndexOf(buildingStr)];
+			if (!buildingSchemas.Contains(buildingStr)) 
+				return ExecutionResult.Failure($"You have provided an invalid building.");
+			
+			if (building.buildingType.Value == Main.Bot.FarmBuilding.BlueprintEntry?.UpgradeFrom ||
+			    Main.Bot.FarmBuilding.CarpenterMenu.Action == CarpenterMenu.CarpentryAction.Demolish)
 			{
 				resultData = building;
 				return ExecutionResult.Success($"selected: {StringUtilities.GetBuildingName(building)}"); 
 			}
 
-			resultData = null;
 			return ExecutionResult.Failure($"You have provided a tile that does not have a valid building in it.");
 		}
 
@@ -472,36 +472,37 @@ public static class PlaceBuildingActions
 			if (resultData is null) return;
 			Main.Bot.FarmBuilding.SelectBuilding(resultData);
 		}
-
-		private static List<string> GetSchema()
+		public static List<string> GetBuildings(GameLocation location,  out List<Building> buildings, CarpenterMenu.CarpentryAction? imitateAction = null)
 		{
-			List<Building> buildings;
-			switch (Main.Bot.FarmBuilding.CarpenterMenu.Action)
+			List<string> builds = new();
+			List<string> usedBuildingTypes = new();
+			buildings = new();
+			foreach (var building in location.buildings)
 			{
-				case CarpenterMenu.CarpentryAction.Upgrade:
-					buildings = Main.Bot._currentLocation.buildings.Where(building =>
-						building.buildingType.Value == Main.Bot.FarmBuilding.CarpenterMenu.Blueprint.UpgradeFrom).ToList();
-					break;
-				case CarpenterMenu.CarpentryAction.Demolish:
-					buildings = Main.Bot._currentLocation.buildings.Where(building =>
-						Main.Bot.FarmBuilding.CarpenterMenu.CanDemolishThis(building)).ToList();
-					break;
-				default:
-					buildings = Main.Bot._currentLocation.buildings.ToList();
-					break;
+				switch (imitateAction ?? Main.Bot.FarmBuilding.CarpenterMenu.Action)
+				{
+					case CarpenterMenu.CarpentryAction.Upgrade:
+						if (building.buildingType.Value != Main.Bot.FarmBuilding.CarpenterMenu.Blueprint.UpgradeFrom)
+							continue;
+						break;
+					case CarpenterMenu.CarpentryAction.Demolish:
+						// CanDemolishThis does not account for not being able to move buildings with animals in them.
+						if (!Main.Bot.FarmBuilding.CarpenterMenu.CanDemolishThis(building) ||
+						     building.HasIndoors() && building.GetIndoors().Animals.Any()) continue;
+						break;
+					default:
+						throw new ArgumentOutOfRangeException();
+				}
+				
+				int buildingAmount = usedBuildingTypes.Count(str => str == building.buildingType.Value);
+				string str = $"{StringUtilities.GetBuildingName(building)}{(buildingAmount > 0 ? $": {buildingAmount}" : "")}";
+				usedBuildingTypes.Add(building.buildingType.Value);
+
+				builds.Add(str);
+				buildings.Add(building);
 			}
 
-			return buildings.Select(FormatBuilding).ToList();
-		}
-
-		private static Building? GetBuilding(string str)
-		{
-			return Main.Bot._currentLocation.buildings.FirstOrDefault(building => FormatBuilding(building) == str);
-		}
-
-		private static string FormatBuilding(Building building)
-		{
-			return $"{StringUtilities.GetBuildingName(building)} pos: {building.tileX.Value},{building.tileY.Value}";
+			return builds;
 		}
 	}
 
@@ -590,32 +591,36 @@ public static class PlaceBuildingActions
 		// This stops from running SelectBuilding schema too early leading to incorrect schema
 		await Util.WaitForSeconds(5);
 		
+		string state;
 		ActionWindow window = ActionWindow.Create(Main.GameInstance);
 		if (select)
 		{
-			window.AddAction(new SelectBuilding());
+			window.SetContext(string.Join("\n",MainGameLoopEvents.GetAnimalsPerBuilding()),true);
+			if (SelectBuilding.GetBuildings(Main.Bot._currentLocation,out _).Any()) window.AddAction(new SelectBuilding());
+			state = $"You should either, select a valid building to " +
+			        $"{(Main.Bot.FarmBuilding.CarpenterMenu.Action == CarpenterMenu.CarpentryAction.Demolish ? "Demolish" : "Upgrade")}" +
+			        $" or decide to cancel selecting a building. If you do not have an action for selecting a building that means there were no valid buildings.";
 		}
 		else
 		{
-			window.AddAction(new PlaceBuilding());
-		}
-		window.AddAction(new CancelPlacingBuilding()).AddAction(new CanBuildOnTile());
-		string state = "";
-		for (int x = 0; x < TileUtilities.MaxX; x++)
-		{
-			for (int y = 0; y < TileUtilities.MaxY; y++)
+			window.AddAction(new PlaceBuilding()).AddAction(new CanBuildOnTile());
+			state = $"These are the important objects in this location, you may need to check if a building can still be" +
+			        $" placed somewhere:";
+			for (int x = 0; x < TileUtilities.MaxX; x++)
 			{
-				string? str = TileContext.GetTileContext(Main.Bot._currentLocation,x,y);
-				if (str is null || str.Contains("Weeds") || str.Contains("Stone")) continue; // remove litter
-				state += $"\n{str}";
+				for (int y = 0; y < TileUtilities.MaxY; y++)
+				{
+					string? str = TileContext.GetTileContext(Main.Bot._currentLocation,x,y);
+					if (str is null || str.Contains("Weeds") || str.Contains("Stone")) continue; // remove litter
+					state += $"\n{str}";
+				}
 			}
 		}
+		window.AddAction(new CancelPlacingBuilding());
 		TileContext.SentFurniture.Clear();
 		TileContext.SentBuildings.Clear();
 		
-		window.SetForce(5, $"You are now in {Main.Bot._currentLocation.DisplayName}", $"These" +
-			$" are the important objects in this location, you may need to check if a building can still be" +
-			$" placed somewhere: {state}",true);
+		window.SetForce(5, $"You are now in {Main.Bot._currentLocation.DisplayName}", state,true);
 		window.Register();
 	}
 }
