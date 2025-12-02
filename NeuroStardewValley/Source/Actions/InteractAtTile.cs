@@ -108,7 +108,8 @@ public class InteractAtTile : NeuroAction<Point>
 		IClickableMenu oldMenu = Game1.activeClickableMenu;
 		DelayedAction.functionAfterDelay(() =>
 		{
-			if (!Main.Bot._currentLocation.Equals(oldLocation) || !Game1.activeClickableMenu.Equals(oldMenu)) return;
+			if (!Main.Bot._currentLocation.Equals(oldLocation) ||
+			    (Game1.activeClickableMenu is not null && !Game1.activeClickableMenu.Equals(oldMenu))) return;
 			RegisterMainActions.RegisterPostAction();
 		}, 1000);
 	}
@@ -133,7 +134,7 @@ public class InteractAtTile : NeuroAction<Point>
 			o = furniture;
 		}
 		
-		Building build = Main.Bot._currentLocation.buildings.FirstOrDefault(bu => DoesBuildingContainTile(bu,point)
+		Building build = Main.Bot._currentLocation.buildings.FirstOrDefault(bu => BuildingActionAtTile(bu,point)
 			,new Building());
 		if (Main.Bot._currentLocation.buildings.Contains(build))
 		{
@@ -216,15 +217,14 @@ public class InteractAtTile : NeuroAction<Point>
 		}
 	}
 
-	private static BuildingActionTile? GetBuildingTile(Building building,Point point)
-	{
-		return building.GetData().ActionTiles.FirstOrDefault(tile => tile.Tile.X + building.tileX.Value == point.X && tile.Tile.Y + building.tileY.Value == point.Y);
-	}
-
+	private static BuildingActionTile? GetBuildingTile(Building building,Point point) => 
+		building.GetData().ActionTiles.FirstOrDefault(tile => tile.Tile.X + building.tileX.Value == point.X &&
+		                                                      tile.Tile.Y + building.tileY.Value == point.Y);
+	
 	private static bool BuildingValidation(int tileX, int tileY, out string reason)
 	{
 		Point point = new Point(tileX, tileY);
-		Building building = Main.Bot._currentLocation.buildings.FirstOrDefault(b => DoesBuildingContainTile(b,point),new Building());
+		Building building = Main.Bot._currentLocation.buildings.FirstOrDefault(b => BuildingActionAtTile(b,point),new Building());
 		if (!Main.Bot._currentLocation.buildings.Contains(building))
 		{
 			reason = $"There is no building at {tileX},{tileY}";
@@ -266,9 +266,9 @@ public class InteractAtTile : NeuroAction<Point>
 		Main.Bot.Building.DoBuildingAction(building, buildingTile.Tile.ToVector2());
 	}
 
-	private static bool DoesBuildingContainTile(Building building,Point tile)
+	private static bool BuildingActionAtTile(Building building,Point tile)
 	{
-		Point adjustedTile = new Point(tile.X - building.tileX.Value, tile.Y - building.tileY.Value);
+		Point adjustedTile = tile - TileUtilities.BuildingTile(building);
 		List<BuildingActionTile> tiles = building.GetData().ActionTiles
 			.Where(buildingTile => buildingTile.Tile == adjustedTile).ToList();
 		return tiles.Count >= 1;

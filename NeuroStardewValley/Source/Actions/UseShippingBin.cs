@@ -83,7 +83,7 @@ public class UseShippingBin : NeuroAction<KeyValuePair<List<Item>,List<int>>>
 			}
 			ShippingBin shippingBin = dictionary[lowestIndex].Dequeue();
 		
-			await TileUtilities.PathfindToObject(new Point(shippingBin.tileX.Value,shippingBin.tileY.Value));
+			await TileUtilities.PathfindToObject(TileUtilities.BuildingTile(shippingBin));
 			await TaskDispatcher.SwitchToMainThread();
 			Main.Bot.ShippingBinInteraction.OpenBin(shippingBin);
 			// if the farmer is not facing will not open so double check if the menu appears

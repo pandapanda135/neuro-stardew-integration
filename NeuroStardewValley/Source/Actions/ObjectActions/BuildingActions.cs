@@ -125,11 +125,10 @@ public static class BuildingActions
 			
 			int index = GetBuildingTiles(GetBuildingsActionTiles(new() { _building })).IndexOf(action);
 			BuildingActionTile tile = GetBuildingsActionTiles(new() { _building })[_building][index];
-			
-			if (!Utility.tileWithinRadiusOfPlayer(_building.tileX.Value + tile.Tile.X,
-				    _building.tileY.Value + tile.Tile.Y, 1, Game1.player))
+			Point buildingTile = TileUtilities.BuildingTile(_building);
+			if (!Utility.tileWithinRadiusOfPlayer(buildingTile.X + tile.Tile.X, buildingTile.Y + tile.Tile.Y,1, Main.Bot._farmer))
 			{
-				return ExecutionResult.Failure($"This action is not within radius of you."); // maybe make it so work toward it? maybe add it to schema?
+				return ExecutionResult.Failure($"This action is not within radius of you."); // maybe make it so walk toward it? maybe add it to schema?
 			}
 
 			resultData = new(tile, pathfind.Value);

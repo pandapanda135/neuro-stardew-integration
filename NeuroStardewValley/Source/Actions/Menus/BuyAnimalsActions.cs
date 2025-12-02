@@ -1,6 +1,7 @@
 using NeuroSDKCsharp.Actions;
 using NeuroSDKCsharp.Json;
 using NeuroSDKCsharp.Websocket;
+using NeuroStardewValley.Source.EventMethods;
 using NeuroStardewValley.Source.Utilities;
 using StardewValley;
 using StardewValley.Buildings;
@@ -90,7 +91,7 @@ public static class BuyAnimalsActions
 			Required = new List<string> { "building" },
 			Properties = new Dictionary<string, JsonSchema>
 			{
-				["building"] = QJS.Enum(GetSchema())
+				["building"] = QJS.Enum(GetSchema(out _))
 			}
 		};
 		protected override ExecutionResult Validate(ActionData actionData, out Building? resultData)
@@ -103,14 +104,14 @@ public static class BuyAnimalsActions
 				return ExecutionResult.Failure($"building cannot be null");
 			}
 
-			int index = GetSchema().ToList().IndexOf(buildingString);
+			int index = GetSchema(out var buildings).ToList().IndexOf(buildingString);
 			if (index == -1)
 			{
 				return ExecutionResult.Failure($"The building you gave was not valid.");
 			}
 
-			Building building = Main.Bot.AnimalMenu.GetAvailableBuildings()[index];
-			if (!Main.Bot.AnimalMenu.BuildingCheck(building, Main.Bot.AnimalMenu.Menu?.animalBeingPurchased!))
+			Building building = buildings[index];
+			if (!Main.Bot.AnimalMenu.BuildingCheck(building, Main.Bot.AnimalMenu.Menu.animalBeingPurchased!))
 			{
 				return ExecutionResult.Failure(string.Format(ResultStrings.ModVarFailure,"BuildingCheck"));
 			}
@@ -125,10 +126,22 @@ public static class BuyAnimalsActions
 			RegisterActions();
 		}
 
-		public IEnumerable<string> GetSchema()
+		public IEnumerable<string> GetSchema(out List<Building> buildings)
 		{
-			return Main.Bot.AnimalMenu.GetAvailableBuildings().Select(building =>
-				$"{building.tileX.Value},{building.tileY.Value} {StringUtilities.GetBuildingName(building)}");
+			List<string> builds = new();
+			List<string> usedBuildingTypes = new();
+			buildings = new();
+			foreach (var building in Main.Bot.AnimalMenu.GetAvailableBuildings())
+			{
+				int buildingAmount = usedBuildingTypes.Count(str => str == building.buildingType.Value);
+				string str = $"{StringUtilities.GetBuildingName(building)}{(buildingAmount > 0 ? $": {buildingAmount}" : "")}";
+				usedBuildingTypes.Add(building.buildingType.Value);
+
+				builds.Add(str);
+				buildings.Add(building);	
+			}
+
+			return builds;
 		}
 	}
 
@@ -160,7 +173,7 @@ public static class BuyAnimalsActions
 				return ExecutionResult.Failure($"If you want to name an animal you must provide a string value.");
 			}
 
-			if (!Main.Bot.AdheresToTextBoxLimit(nameString, Main.Bot.AnimalMenu.Menu?.textBox!))
+			if (!Main.Bot.AdheresToTextBoxLimit(nameString, Main.Bot.AnimalMenu.Menu.textBox))
 			{
 				return ExecutionResult.Failure($"{nameString} is too long, you should try a different name next time.");
 			}
@@ -207,7 +220,7 @@ public static class BuyAnimalsActions
 		protected override JsonSchema Schema => new();
 		protected override ExecutionResult Validate(ActionData actionData)
 		{
-			return ExecutionResult.Success($"You have selected the name: {Main.Bot.AnimalMenu.Menu?.textBox.Text}, for the {Main.Bot.AnimalMenu.Menu?.animalBeingPurchased.displayType}.");
+			return ExecutionResult.Success($"You have selected the name: {Main.Bot.AnimalMenu.Menu.textBox.Text}, for the {Main.Bot.AnimalMenu.Menu.animalBeingPurchased.displayType}.");
 		}
 
 		protected override void Execute()
@@ -218,7 +231,6 @@ public static class BuyAnimalsActions
 
 	public static void RegisterActions(int waitTime = 0)
 	{
-		if (Main.Bot.AnimalMenu.Menu is null) return;
 		ActionWindow window = ActionWindow.Create(Main.GameInstance);
 		string stateString;
 		string queryString;
@@ -226,9 +238,11 @@ public static class BuyAnimalsActions
 		{
 			queryString = "You are selecting the building for the animal to be in.";
 			stateString = "None of the buildings in this location are valid.";
-			if (new SelectBuilding().GetSchema().ToArray().Length != 0)
+			if (new SelectBuilding().GetSchema(out var buildings).Any())
 			{
-				stateString = $"These are the other animal in the valid buildings: {string.Join("\n",Main.Bot.AnimalMenu.GetAvailableBuildings().Select(FormatBuildingAnimals))}";
+				string animalAmount = string.Join("\n",StringUtilities.GetAnimalsPerBuilding(buildings,
+					(b, _, _) => $"\n-- Position: {TileUtilities.BuildingTile(b)}"));
+				stateString = $"These are the other animal in the valid buildings:\n{animalAmount}";
 				window.AddAction(new SelectBuilding());
 			}
 			window.AddAction(new ExitMenu());

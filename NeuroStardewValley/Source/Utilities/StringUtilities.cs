@@ -159,4 +159,62 @@ public static class StringUtilities
 
 		return "";
 	}
+
+	#region AnimalBuilding
+	
+	/// <summary>
+	/// Gets the animals in buildings in the current location.
+	/// </summary>
+	/// <param name="additionalContextFunc">This is for adding additional context, the parameters are for
+	/// the current building, the amount of each animal and the amount of this type of building. This returns a string that is added on to the existing string.</param>
+	/// <returns>Return building and animals as string for context, this is in the format -{buildingName}\n--{animals}{additionalContextFunc}</returns>
+	public static List<string> GetAnimalsPerBuilding(Func<Building,int?,Dictionary<string, int>?,string>? additionalContextFunc = null)
+	{
+		List<string> usedBuildingTypes = new();
+		return Main.Bot._currentLocation.buildings.Where(building => building.HasIndoors()).Select(building =>
+			FormatAnimalAmount(building, ref usedBuildingTypes, additionalContextFunc)).ToList();
+	}
+
+	/// <inheritdoc cref="GetAnimalsPerBuilding(System.Func{StardewValley.Buildings.Building,int?,System.Collections.Generic.Dictionary{string,int}?,string}?)"/>>
+	public static List<string> GetAnimalsPerBuilding(List<Building> buildings, Func<Building,int?,Dictionary<string, int>?,string>? additionalContextFunc = null)
+	{
+		List<string> usedBuildingTypes = new();
+		return buildings.Where(building => building.HasIndoors()).Select(building =>
+			FormatAnimalAmount(building, ref usedBuildingTypes, additionalContextFunc)).ToList();
+	}
+	
+	/// <returns>Return building and animals as string for context, this is in the format -{buildingName}\n--{animals}{additionalContextFunc}</returns>
+	public static string FormatAnimalAmount(Building building, ref List<string> usedBuildingTypes, Func<Building,int?,Dictionary<string, int>?,string>? additionalContextFunc = null)
+	{
+		int buildingAmount = usedBuildingTypes.Count(str => str == building.GetIndoors().Name);
+		string str;
+		if (!building.GetIndoors().Animals.Any())
+		{
+			str = $"- {StringUtilities.GetBuildingName(building)}{(buildingAmount > 0 ? $" {buildingAmount}" : "")}\n-- Has no animals inside.";
+			usedBuildingTypes.Add(building.GetIndoors().Name);
+			return str;
+		}
+
+		Dictionary<string, int> animalAmount = new();
+		foreach (var animal in building.GetIndoors().Animals.Values)
+		{
+			if (!animalAmount.TryAdd(animal.displayType, 1))
+			{
+				animalAmount[animal.displayType]++;
+			}
+		}
+
+		str = $"- {StringUtilities.GetBuildingName(building)}{(buildingAmount > 0 ? $" {buildingAmount}" : "")}";
+		usedBuildingTypes.Add(building.GetIndoors().Name);
+
+		str = animalAmount.Aggregate(str, (current, kvp) => $"{current}\n-- {kvp.Key} amount: {kvp.Value}");
+
+		if (additionalContextFunc is not null)
+		{
+			str += additionalContextFunc(building,buildingAmount,animalAmount);
+		}
+
+		return str;
+	}
+	#endregion
 }

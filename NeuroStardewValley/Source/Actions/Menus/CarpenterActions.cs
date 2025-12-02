@@ -11,6 +11,7 @@ using StardewValley;
 using StardewValley.Buildings;
 using StardewValley.GameData.Buildings;
 using StardewValley.Menus;
+using StardewValley.Util;
 
 namespace NeuroStardewValley.Source.Actions.Menus;
 
@@ -229,6 +230,7 @@ public static class CarpenterActions
 		if (Game1.activeClickableMenu is not null)
 		{
 			Game1.activeClickableMenu.exitThisMenu();
+			return;
 		}
 		RegisterMainActions.RegisterPostAction();
 	}
@@ -257,15 +259,13 @@ public static class CarpenterActions
 				return ExecutionResult.Failure($"");
 			}
 
-			if (Main.Bot.FarmBuilding.CarpenterMenu.DoesFarmerHaveEnoughResourcesToBuild())
-			{
-				return ExecutionResult.Success($"building {Main.Bot.FarmBuilding.BlueprintEntry?.DisplayName}");
-			}
 			resultData = Main.Bot.FarmBuilding.Blueprints.FirstOrDefault(entry => entry.DisplayName == buildingName);
 			if (resultData is null)
-				return ExecutionResult.Failure($"");
-
-			return ExecutionResult.Success($"Building {resultData.DisplayName}");
+				return ExecutionResult.Failure($"{string.Format(ResultStrings.ModVarFailure, "resultData in BuildBluePrint")}");
+			if (!Main.Bot.FarmBuilding.CarpenterMenu.DoesFarmerHaveEnoughResourcesToBuild())
+				return ExecutionResult.Failure($"You do not have the resources needed to building a {resultData.DisplayName}");
+			
+			return ExecutionResult.Success($"Moving so you can select where to build the {resultData.DisplayName}.");
 		}
 
 		protected override async void Execute(CarpenterMenu.BlueprintEntry? resultData)
@@ -275,6 +275,7 @@ public static class CarpenterActions
 				// this should never happen, should probably check for it though.
 				if (resultData is null)
 				{
+					Logger.Error($"Result data was null in BuildBlueprint: {StackTraceHelper.StackTrace}");
 					HandleRegister();
 					return;
 				}
@@ -595,8 +596,12 @@ public static class PlaceBuildingActions
 		ActionWindow window = ActionWindow.Create(Main.GameInstance);
 		if (select)
 		{
-			window.SetContext(string.Join("\n",MainGameLoopEvents.GetAnimalsPerBuilding()),true);
-			if (SelectBuilding.GetBuildings(Main.Bot._currentLocation,out _).Any()) window.AddAction(new SelectBuilding());
+			var list = SelectBuilding.GetBuildings(Main.Bot._currentLocation,out var buildings);
+			if (list.Any())
+			{
+				window.SetContext(string.Join("\n",StringUtilities.GetAnimalsPerBuilding(buildings)),true);
+				window.AddAction(new SelectBuilding());
+			}
 			state = $"You should either, select a valid building to " +
 			        $"{(Main.Bot.FarmBuilding.CarpenterMenu.Action == CarpenterMenu.CarpentryAction.Demolish ? "Demolish" : "Upgrade")}" +
 			        $" or decide to cancel selecting a building. If you do not have an action for selecting a building that means there were no valid buildings.";

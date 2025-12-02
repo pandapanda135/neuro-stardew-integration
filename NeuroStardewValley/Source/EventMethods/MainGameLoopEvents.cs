@@ -46,7 +46,7 @@ public static class MainGameLoopEvents
 
 		string buildingString =
 			Main.Bot._currentLocation.buildings.Any(building => building.HasIndoors())
-				? $"These are the buildings and animals in them: {string.Join("\n",GetAnimalsPerBuilding())}" : "";
+				? $"These are the buildings and animals in them: {string.Join("\n",StringUtilities.GetAnimalsPerBuilding())}" : "";
 		
 		Context.Send($"{warpsString}\n{characterContext}{(buildingString.Any() ? $"\n{buildingString}" : "")}", true);
 		string query =
@@ -356,42 +356,6 @@ public static class MainGameLoopEvents
 		                 $" {PlayerContext.GetAllSkillLevel()}.";
 		
 		return contextString;
-	}
-	
-	public static List<string> GetAnimalsPerBuilding()
-	{
-		List<string> builds = new();
-		List<string> usedBuildingTypes = new();
-		foreach (var building in Main.Bot._currentLocation.buildings.Where(building => building.HasIndoors()))
-		{
-			int buildingAmount = usedBuildingTypes.Count(str => str == building.GetIndoors().Name);
-			string str;
-			if (!building.GetIndoors().Animals.Any())
-			{
-				str = $"{StringUtilities.GetBuildingName(building)}{(buildingAmount > 0 ? $" {buildingAmount}" : "")}: Has no animals inside.";
-				usedBuildingTypes.Add(building.GetIndoors().Name);
-				builds.Add(str);
-				continue;
-			}
-
-			Dictionary<string, int> animalAmount = new();
-			foreach (var animal in building.GetIndoors().Animals.Values)
-			{
-				if (!animalAmount.TryAdd(animal.displayType, 1))
-				{
-					animalAmount[animal.displayType]++;
-				}
-			}
-
-			str = $"{StringUtilities.GetBuildingName(building)}{(buildingAmount > 0 ? $" {buildingAmount}" : "")}: ";
-			usedBuildingTypes.Add(building.GetIndoors().Name);
-
-			str = animalAmount.Aggregate(str, (current, kvp) => $"{current}{kvp.Key} amount: {kvp.Value} ");
-
-			builds.Add(str);
-		}
-
-		return builds;
 	}
 
 	#endregion

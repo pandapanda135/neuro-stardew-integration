@@ -3,6 +3,7 @@ using NeuroStardewValley.Source.ContextStrings;
 using StardewBotFramework.Source.Modules.Pathfinding.Base;
 using StardewValley;
 using StardewValley.Buildings;
+using StardewValley.GameData.Buildings;
 using Object = StardewValley.Object;
 
 namespace NeuroStardewValley.Source.Utilities;
@@ -96,6 +97,11 @@ public static class TileUtilities
 	{
 		return Main.Bot._currentLocation.getBuildingAt(tile.ToVector2());
 	}
+
+	/// <summary>
+	/// This is the building's top left most tile.
+	/// </summary>
+	public static Point BuildingTile(Building building) => new Point(building.tileX.Value, building.tileY.Value);
 
 	public static bool Actionable(Point tile)
 	{
