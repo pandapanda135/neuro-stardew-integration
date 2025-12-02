@@ -116,7 +116,7 @@ public static class LessImportantEvents
 			_ranCaughtFish = true;
 			await Util.WaitForSeconds(1.5);
 			
-			Main.Bot.FishingBar.CloseRewardMenu();
+			BotHandler.Bot.FishingBar.CloseRewardMenu();
 			_ranCaughtFish = false;
 			RegisterMainActions.RegisterPostAction();
 		});

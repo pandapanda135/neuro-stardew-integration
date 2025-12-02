@@ -32,7 +32,7 @@ public class UseShippingBin : NeuroAction<KeyValuePair<List<Item>,List<int>>>
 					Required = { "item", "quantity" },
 					Properties =
 					{
-						["item"] = new() { Type = JsonSchemaType.String, Enum = ItemEnum(Main.Bot.Inventory.Inventory, item => item.canBeShipped())},
+						["item"] = new() { Type = JsonSchemaType.String, Enum = ItemEnum(BotHandler.Bot.Inventory.Inventory, item => item.canBeShipped())},
 						["quantity"] = new()
 						{
 							Type = JsonSchemaType.Integer,
@@ -57,8 +57,8 @@ public class UseShippingBin : NeuroAction<KeyValuePair<List<Item>,List<int>>>
 		}
 		
 		resultData = new(new(), new());
-		var enumItems = EnumToItem(Main.Bot.Inventory.Inventory, jsons.Select(json => json.Item).ToList());
-		resultData = ItemJsonToItem(jsons, Main.Bot.Inventory.Inventory.ToList(), enumItems);
+		var enumItems = EnumToItem(BotHandler.Bot.Inventory.Inventory, jsons.Select(json => json.Item).ToList());
+		resultData = ItemJsonToItem(jsons, BotHandler.Bot.Inventory.Inventory.ToList(), enumItems);
 		
 		if (resultData.Key.Count == jsons.Count && resultData.Value.Count == jsons.Count)
 			return ExecutionResult.Success($"Adding items to the shipping bin.");
@@ -71,8 +71,8 @@ public class UseShippingBin : NeuroAction<KeyValuePair<List<Item>,List<int>>>
 	{
 		try
 		{
-			var dictionary = ClosestShippingBin(Main.Bot._farmer.TilePoint,
-				Main.Bot.ShippingBinInteraction.GetShippingBinsInLocation(Main.Bot._currentLocation));
+			var dictionary = ClosestShippingBin(BotHandler.Farmer.TilePoint,
+				BotHandler.Bot.ShippingBinInteraction.GetShippingBinsInLocation(BotHandler.CurrentLocation));
 			int lowestIndex = 0;
 			foreach (var kvp in dictionary)
 			{
@@ -85,7 +85,7 @@ public class UseShippingBin : NeuroAction<KeyValuePair<List<Item>,List<int>>>
 		
 			await TileUtilities.PathfindToObject(TileUtilities.BuildingTile(shippingBin));
 			await TaskDispatcher.SwitchToMainThread();
-			Main.Bot.ShippingBinInteraction.OpenBin(shippingBin);
+			BotHandler.Bot.ShippingBinInteraction.OpenBin(shippingBin);
 			// if the farmer is not facing will not open so double check if the menu appears
 			await Util.WaitForSeconds(1);
 			if (Game1.activeClickableMenu is not ItemGrabMenu)
@@ -103,13 +103,13 @@ public class UseShippingBin : NeuroAction<KeyValuePair<List<Item>,List<int>>>
 
 			for (int i = 0; i < resultData.Key.Count; i++)
 			{
-				Main.Bot.ShippingBinInteraction.AddItemAmount(resultData.Key[i],resultData.Value[i]);
+				BotHandler.Bot.ShippingBinInteraction.AddItemAmount(resultData.Key[i],resultData.Value[i]);
 				await Util.WaitForSeconds(0.3);
 			}
 			
 			await Util.WaitForSeconds(2);
 			// actions get registered when exiting menu.
-			Main.Bot.ShippingBinInteraction.RemoveMenu();
+			BotHandler.Bot.ShippingBinInteraction.RemoveMenu();
 		}
 		catch (Exception e)
 		{

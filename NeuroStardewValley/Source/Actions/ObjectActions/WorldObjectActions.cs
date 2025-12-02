@@ -31,7 +31,7 @@ public static class WorldObjectActions
 			Required = new List<string> { "object", "tile_x", "tile_y" },
 			Properties = new Dictionary<string, JsonSchema>
 			{
-				["object"] = QJS.Enum(Main.Bot.Inventory.Inventory.Where(item => item is not null && item.isPlaceable())
+				["object"] = QJS.Enum(BotHandler.Bot.Inventory.Inventory.Where(item => item is not null && item.isPlaceable())
 					.Select(item => item.DisplayName)),
 				["tile_x"] = QJS.Type(JsonSchemaType.Integer),
 				["tile_y"] = QJS.Type(JsonSchemaType.Integer)
@@ -52,11 +52,11 @@ public static class WorldObjectActions
 			Point point = new Point((int)tileX, (int)tileY);
 			if (!TileUtilities.IsValidTile(point, out var reason)) return ExecutionResult.Failure(reason);
 			
-			int index = Main.Bot.Inventory.Inventory.Where(item => item is not null && item.isPlaceable())
+			int index = BotHandler.Bot.Inventory.Inventory.Where(item => item is not null && item.isPlaceable())
 				.Select(item => item.DisplayName).ToList().IndexOf(objString);
 			if (index == -1) return ExecutionResult.Failure($"The object you specified does not exist in your inventory.");
 			
-			Object obj = (Object)Main.Bot.Inventory.Inventory.Where(item => item is not null && item.isPlaceable()).ToList()[index];
+			Object obj = (Object)BotHandler.Bot.Inventory.Inventory.Where(item => item is not null && item.isPlaceable()).ToList()[index];
 
 			if (obj is null) return ExecutionResult.Failure($"The object you specified does not exist.");
 			
@@ -65,9 +65,9 @@ public static class WorldObjectActions
 			// This one should not happen as we only send placeable items
 			if (!obj.isPlaceable()) return ExecutionResult.Failure($"The object you specified is not placeable.");
 
-			if (Main.Bot._currentLocation.terrainFeatures.TryGetValue(point.ToVector2(), out var feature) && feature is HoeDirt dirt)
+			if (BotHandler.CurrentLocation.terrainFeatures.TryGetValue(point.ToVector2(), out var feature) && feature is HoeDirt dirt)
 			{
-				string id = Crop.ResolveSeedId(obj.ItemId, Main.Bot._currentLocation);
+				string id = Crop.ResolveSeedId(obj.ItemId, BotHandler.CurrentLocation);
 				if (!dirt.canPlantThisSeedHere(id, obj.Category == -19)) 
 					return ExecutionResult.Failure(obj.Category == -74 ?
 						$"This item cannot be placed at the tile you specified," +
@@ -81,16 +81,16 @@ public static class WorldObjectActions
 
 		protected override void Execute(KeyValuePair<Object, Point> resultData)
 		{
-			var placeTile = new PlaceTile(resultData.Value,Main.Bot._currentLocation,itemToPlace: resultData.Key);
+			var placeTile = new PlaceTile(resultData.Value,BotHandler.CurrentLocation,itemToPlace: resultData.Key);
 
-			Main.Bot.Tool.PlaceObjects(new List<ITile> { placeTile },false);
+			BotHandler.Bot.Tool.PlaceObjects(new List<ITile> { placeTile },false);
 			
 			Task.Run(async () =>
 			{
-				while (Main.Bot.Tool.Running) {}
+				while (BotHandler.Bot.Tool.Running) {}
 
 				await TaskDispatcher.SwitchToMainThread();
-				if (TileUtilities.GetTileType(Main.Bot._currentLocation, resultData.Value) != resultData.Key)
+				if (TileUtilities.GetTileType(BotHandler.CurrentLocation, resultData.Value) != resultData.Key)
 				{
 					Context.Send($"The object you selected to place may not have been placed where you wanted" +
 					             $" it to be, you should check to see if there is anything blocked it or blocking your" +
@@ -112,7 +112,7 @@ public static class WorldObjectActions
 			Required = new List<string> { "object","radius" },
 			Properties = new Dictionary<string, JsonSchema>
 			{
-				["object"] = QJS.Enum(Main.Bot.Inventory.Inventory.Where(item => item is not null && item.isPlaceable()).Select(item => item.Name)),
+				["object"] = QJS.Enum(BotHandler.Bot.Inventory.Inventory.Where(item => item is not null && item.isPlaceable()).Select(item => item.Name)),
 				["radius"] = QJS.Type(JsonSchemaType.Integer)
 			}
 		};
@@ -129,11 +129,11 @@ public static class WorldObjectActions
 			
 			if (radius > 30 || radius < 2) return ExecutionResult.Failure($"The radius can only be between 30 and 2.");
 			
-			int index = Main.Bot.Inventory.Inventory.Where(item => item is not null && item.isPlaceable())
+			int index = BotHandler.Bot.Inventory.Inventory.Where(item => item is not null && item.isPlaceable())
 				.Select(item => item.Name).ToList().IndexOf(objString);
 			if (index == -1) return ExecutionResult.Failure($"The object you specified does not exist in your inventory.");
 			
-			Object obj = (Object)Main.Bot.Inventory.Inventory.Where(item => item is not null && item.isPlaceable()).ToList()[index];
+			Object obj = (Object)BotHandler.Bot.Inventory.Inventory.Where(item => item is not null && item.isPlaceable()).ToList()[index];
 
 			if (obj is null) return ExecutionResult.Failure($"The object you specified does not exist.");
 			
@@ -151,12 +151,12 @@ public static class WorldObjectActions
 
 		protected override void Execute(KeyValuePair<Object, int> resultData)
 		{
-			var tiles = Main.Bot.Tool.PlaceObjectsInRadius(Main.Bot._farmer.TilePoint, resultData.Key, resultData.Value);
-			Main.Bot.Tool.PlaceObjects(tiles);
+			var tiles = BotHandler.Bot.Tool.PlaceObjectsInRadius(BotHandler.Farmer.TilePoint, resultData.Key, resultData.Value);
+			BotHandler.Bot.Tool.PlaceObjects(tiles);
 
 			Task.Run(async () =>
 			{
-				while (Main.Bot.Tool.Running)
+				while (BotHandler.Bot.Tool.Running)
 				{}
 
 				await TaskDispatcher.SwitchToMainThread();
@@ -197,13 +197,13 @@ public static class WorldObjectActions
 				return ExecutionResult.Failure($"You have provided a null value.");
 			}
 
-			if ((bool)useHeld && Main.Bot._farmer.ActiveItem is null)
+			if ((bool)useHeld && BotHandler.Farmer.ActiveItem is null)
 			{
 				return ExecutionResult.Failure($"You are not holding anything so you cannot use the held item.");
 			}
 
 			Point point = new Point((int)objX, (int)objY);
-			object? obj = TileUtilities.GetTileType(Main.Bot._currentLocation, point);
+			object? obj = TileUtilities.GetTileType(BotHandler.CurrentLocation, point);
 			if (obj is null or Building)
 			{
 				return ExecutionResult.Failure($"There is no object valid at the tile you provided.");
@@ -221,7 +221,7 @@ public static class WorldObjectActions
 
 		protected override void Execute(Point resultData)
 		{
-			object? o = (Main.Bot._currentLocation, resultData);
+			object? o = (BotHandler.CurrentLocation, resultData);
 			if (o is null or Building)
 			{
 				return;
@@ -234,19 +234,19 @@ public static class WorldObjectActions
 					if (obj.GetMachineData() is not null && (obj.heldObject.Value is null || 
 						(obj.GetMachineData().AllowLoadWhenFull && obj.heldObject.Value is not null)) && _useHeld)
 					{
-						Main.Bot.Player.AddItemToObject(obj, Main.Bot._farmer.ActiveItem);
+						BotHandler.Bot.Player.AddItemToObject(obj, BotHandler.Farmer.ActiveItem);
 						break;
 					}
 
-					Main.Bot.ObjectInteraction.InteractWithObject(obj);
+					BotHandler.Bot.ObjectInteraction.InteractWithObject(obj);
 					break;
 				case TerrainFeature feature:
 					if (_useHeld)
 					{
-						Graph.IsInNeighbours(Main.Bot._farmer.TilePoint, resultData, out var direction,4);
-						Main.Bot.Tool.UseTool(direction);
+						Graph.IsInNeighbours(BotHandler.Farmer.TilePoint, resultData, out var direction,4);
+						BotHandler.Bot.Tool.UseTool(direction);
 					}
-					Main.Bot.ObjectInteraction.InteractWithTerrainFeature(feature, resultData.ToVector2());
+					BotHandler.Bot.ObjectInteraction.InteractWithTerrainFeature(feature, resultData.ToVector2());
 					break;
 				default:
 					Logger.Error($"InteractWithObject execute result data was not a valid class");
@@ -289,7 +289,7 @@ public static class WorldObjectActions
 				return ExecutionResult.Failure($"The tile you provided is not a valid tile, you should try another."); 
 			}
 
-			if (!Utility.tileWithinRadiusOfPlayer(tile.X, tile.Y, 1, Main.Bot._farmer))
+			if (!Utility.tileWithinRadiusOfPlayer(tile.X, tile.Y, 1, BotHandler.Farmer))
 			{
 				return ExecutionResult.Failure($"You are not neighbouring the tile you selected, you should try to get closer.");
 			}
@@ -300,7 +300,7 @@ public static class WorldObjectActions
 
 		protected override void Execute(Point resultData)
 		{
-			Main.Bot.ActionTiles.DoActionTile(resultData);
+			BotHandler.Bot.ActionTiles.DoActionTile(resultData);
 			RegisterMainActions.RegisterPostAction();
 		}
 	}
@@ -357,8 +357,8 @@ public static class WorldObjectActions
 		protected override void Execute(Point resultData)
 		{
 			// currently just stops from sending if mine ladder
-			bool registerAction = Main.Bot._currentLocation.getTileIndexAt(resultData.X, resultData.Y, "Buildings") != 173;
-			Main.Bot._currentLocation.checkAction(new Location(resultData.X,resultData.Y),Game1.viewport,Main.Bot._farmer);
+			bool registerAction = BotHandler.CurrentLocation.getTileIndexAt(resultData.X, resultData.Y, "Buildings") != 173;
+			BotHandler.CurrentLocation.checkAction(new Location(resultData.X,resultData.Y),Game1.viewport,BotHandler.Farmer);
 			if (registerAction) RegisterMainActions.RegisterPostAction();
 		}
 
@@ -366,7 +366,7 @@ public static class WorldObjectActions
 		{
 			List<Point> tiles = new();
 
-			switch (Main.Bot._currentLocation)
+			switch (BotHandler.CurrentLocation)
 			{
 				case AnimalHouse animalHouse:
 					for (int x = 0; x < TileUtilities.MaxX; x++)
@@ -374,7 +374,7 @@ public static class WorldObjectActions
 						for (int y = 0; y < TileUtilities.MaxY; y++)
 						{
 							if (animalHouse.doesTileHaveProperty(x, y, "Trough", "Back") == null ||
-							    Main.Bot._currentLocation.Objects.ContainsKey(new Vector2(x, y))) continue;
+							    BotHandler.CurrentLocation.Objects.ContainsKey(new Vector2(x, y))) continue;
 
 							tiles.Add(new Point(x, y));
 						}
@@ -412,7 +412,7 @@ public static class WorldObjectActions
 
 		protected override void Execute()
 		{
-			Main.Bot._farmer.StopSitting();
+			BotHandler.Farmer.StopSitting();
 			// character will not be controllable for a bit
 			DelayedAction.functionAfterDelay(() => RegisterMainActions.RegisterPostAction(), 1000);
 		}

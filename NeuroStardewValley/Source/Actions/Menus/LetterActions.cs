@@ -20,8 +20,8 @@ public static class LetterActions
 
 		protected override void Execute()
 		{
-			Main.Bot.LetterViewer.AcceptQuest();
-			Main.Bot.LetterViewer.ClickCloseButton();
+			BotHandler.Bot.LetterViewer.AcceptQuest();
+			BotHandler.Bot.LetterViewer.ClickCloseButton();
 		}
 	}
 
@@ -47,21 +47,21 @@ public static class LetterActions
 			
 			if (GetSchema().IndexOf(action) == -1) return ExecutionResult.Failure($"The item you provided does not exist");
 			
-			resultData = Main.Bot.LetterViewer.Items[GetSchema().IndexOf(action)].item;
+			resultData = BotHandler.Bot.LetterViewer.Items[GetSchema().IndexOf(action)].item;
 			return ExecutionResult.Success();
 		}
 
 		protected override void Execute(Item? resultData)
 		{
 			if (resultData is null) return;
-			Main.Bot.LetterViewer.GrabItem(resultData);
+			BotHandler.Bot.LetterViewer.GrabItem(resultData);
 			RegisterActions();
 		}
 
 		private static List<string> GetSchema()
 		{
 			List<string> schema = new();
-			foreach (var cc in Main.Bot.LetterViewer.Items)
+			foreach (var cc in BotHandler.Bot.LetterViewer.Items)
 			{
 				schema.Add($"item name: {cc.item.DisplayName} name: {cc.name}");
 			}
@@ -82,19 +82,19 @@ public static class LetterActions
 
 		protected override void Execute()
 		{
-			Main.Bot.LetterViewer.ClickCloseButton();
+			BotHandler.Bot.LetterViewer.ClickCloseButton();
 		}
 	}
 
 	public static void RegisterActions()
 	{
 		ActionWindow window = ActionWindow.Create(Main.GameInstance);
-		if (Main.Bot.LetterViewer.Items.Count > 0)
+		if (BotHandler.Bot.LetterViewer.Items.Count > 0)
 		{
 			window.AddAction(new TakeItems());
 		}
 
-		if (Main.Bot.LetterViewer.HasQuest == true)
+		if (BotHandler.Bot.LetterViewer.HasQuest == true)
 		{
 			window.AddAction(new AcceptQuest());
 		}

@@ -20,7 +20,7 @@ public static class JunimoNoteActions
 			Required = new List<string> { "bundle" },
 			Properties = new Dictionary<string, JsonSchema>
 			{
-				["bundle"] = QJS.Enum(Main.Bot.JunimoNote.Menu.bundles.Where(bundle => !bundle.complete && bundle.canBeClicked()).Select(bundle => bundle.name))
+				["bundle"] = QJS.Enum(BotHandler.Bot.JunimoNote.Menu.bundles.Where(bundle => !bundle.complete && bundle.canBeClicked()).Select(bundle => bundle.name))
 			}
 		};
 		protected override ExecutionResult Validate(ActionData actionData, out Bundle? resultData)
@@ -33,18 +33,18 @@ public static class JunimoNoteActions
 				return ExecutionResult.Failure($"You provided a null value to bundle");
 			}
 
-			if (Main.Bot.JunimoNote.Menu.bundles.All(bundle => bundle.name != s))
+			if (BotHandler.Bot.JunimoNote.Menu.bundles.All(bundle => bundle.name != s))
 			{
 				return ExecutionResult.Failure($"You provided a value that does not exist.");
 			}
 
-			resultData = Main.Bot.JunimoNote.Menu.bundles.Find(bundle => bundle.name == s);
+			resultData = BotHandler.Bot.JunimoNote.Menu.bundles.Find(bundle => bundle.name == s);
 			return ExecutionResult.Success($"You have selected: {resultData?.name}");
 		}
 
 		protected override void Execute(Bundle? resultData)
 		{
-			Main.Bot.JunimoNote.SelectBundle(Main.Bot.JunimoNote.Menu.bundles.IndexOf(resultData));
+			BotHandler.Bot.JunimoNote.SelectBundle(BotHandler.Bot.JunimoNote.Menu.bundles.IndexOf(resultData));
 			RegisterActions();
 		}
 	}
@@ -56,7 +56,7 @@ public static class JunimoNoteActions
 		protected override JsonSchema Schema => new();
 		protected override ExecutionResult Validate(ActionData actionData)
 		{
-			if (!Main.Bot.JunimoNote.Menu.isReadyToCloseMenuOrBundle())
+			if (!BotHandler.Bot.JunimoNote.Menu.isReadyToCloseMenuOrBundle())
 			{
 				return ExecutionResult.Failure($"You cannot close this menu right now.");
 			}
@@ -65,8 +65,8 @@ public static class JunimoNoteActions
 
 		protected override void Execute()
 		{
-			var cc = Main.Bot.JunimoNote.Menu.backButton;
-			Main.Bot.JunimoNote.Menu.receiveLeftClick(cc.bounds.X,cc.bounds.Y);
+			var cc = BotHandler.Bot.JunimoNote.Menu.backButton;
+			BotHandler.Bot.JunimoNote.Menu.receiveLeftClick(cc.bounds.X,cc.bounds.Y);
 			RegisterActions();
 		}
 	}
@@ -95,12 +95,12 @@ public static class JunimoNoteActions
 				return ExecutionResult.Failure($"You have provided a null value that is not allowed");
 			}
 			
-			Item? i = Main.Bot.JunimoNote.Menu.inventory.actualInventory.ToList().Find(i => i.DisplayName == item);
+			Item? i = BotHandler.Bot.JunimoNote.Menu.inventory.actualInventory.ToList().Find(i => i.DisplayName == item);
 			if (i is null)
 			{
 				return ExecutionResult.Failure($"The item you provided does not exist.");
 			}
-			var menu = Main.Bot.JunimoNote.Menu;
+			var menu = BotHandler.Bot.JunimoNote.Menu;
 			
 			if (!menu.currentPageBundle.depositsAllowed)
 			{
@@ -128,14 +128,14 @@ public static class JunimoNoteActions
 		protected override void Execute(Item? resultData)
 		{
 			if (resultData is null) return;
-			Main.Bot.JunimoNote.AddItem(resultData);
+			BotHandler.Bot.JunimoNote.AddItem(resultData);
 			RegisterActions();
 		}
 
 		public static List<string> GetSchema()
 		{
-			IEnumerable<Item> items = Main.Bot.JunimoNote.Menu.inventory.actualInventory.Where(item => item is not null &&
-				Main.Bot.JunimoNote.Menu.currentPageBundle.ingredients.Exists(desc => !desc.completed && ItemRegistry.Create(desc.id).Name == item.Name && desc.id == item.ItemId));
+			IEnumerable<Item> items = BotHandler.Bot.JunimoNote.Menu.inventory.actualInventory.Where(item => item is not null &&
+				BotHandler.Bot.JunimoNote.Menu.currentPageBundle.ingredients.Exists(desc => !desc.completed && ItemRegistry.Create(desc.id).Name == item.Name && desc.id == item.ItemId));
 			
 			List<string> itemString = new();
 			using var enumerator = items.GetEnumerator();
@@ -156,7 +156,7 @@ public static class JunimoNoteActions
 		protected override JsonSchema Schema => new();
 		protected override ExecutionResult Validate(ActionData actionData)
 		{
-			if (!Main.Bot.JunimoNote.Menu.isReadyToCloseMenuOrBundle())
+			if (!BotHandler.Bot.JunimoNote.Menu.isReadyToCloseMenuOrBundle())
 			{
 				return ExecutionResult.Failure($"You cannot close this menu right now.");
 			}
@@ -165,7 +165,7 @@ public static class JunimoNoteActions
 
 		protected override void Execute()
 		{
-			Main.Bot.JunimoNote.RemoveMenu();
+			BotHandler.Bot.JunimoNote.RemoveMenu();
 		}
 	}
 
@@ -173,9 +173,9 @@ public static class JunimoNoteActions
 	{
 		ActionWindow window = ActionWindow.Create(Main.GameInstance);
 
-		if (Main.Bot.JunimoNote.Menu.currentPageBundle is null || !Main.Bot.JunimoNote.Menu.specificBundlePage || !Main.Bot.JunimoNote.Menu.backButton.visible)
+		if (BotHandler.Bot.JunimoNote.Menu.currentPageBundle is null || !BotHandler.Bot.JunimoNote.Menu.specificBundlePage || !BotHandler.Bot.JunimoNote.Menu.backButton.visible)
 		{
-			string reward = Main.Bot.JunimoNote.Menu.getRewardNameForArea(Main.Bot.JunimoNote.Menu.whichArea);
+			string reward = BotHandler.Bot.JunimoNote.Menu.getRewardNameForArea(BotHandler.Bot.JunimoNote.Menu.whichArea);
 			window.AddAction(new SelectBundle()).AddAction(new ExitMenu());
 			window.SetForce(0, "You are now able to select a bundle, adding items to all of the bundles" +
 			                   " in this page will lead to completing this page and getting the reward.",
@@ -187,7 +187,7 @@ public static class JunimoNoteActions
 			{
 				window.AddAction(new AddItem());
 			}
-			string state = string.Concat(Main.Bot.JunimoNote.Menu.currentPageBundle.ingredients
+			string state = string.Concat(BotHandler.Bot.JunimoNote.Menu.currentPageBundle.ingredients
 				.Where(desc => !desc.completed).Select(desc => 
 					$"\n-{ItemRegistry.Create(desc.id).Name}:\n-- Rarity: {InventoryContext.QualityStrings[ItemRegistry.Create(desc.id).Quality]}\n-- Amount: {desc.stack}"));
 			window.AddAction(new ExitMenu()).AddAction(new ExitBundle());

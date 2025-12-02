@@ -7,9 +7,9 @@ public static class InventoryUtils
 {
 	public static void ClickFirstEmptySlot(List<ClickableComponent> clickableComponents, IClickableMenu menu)
 	{
-		for (int i = 0; i < Main.Bot.Inventory.Inventory.Count; i++)
+		for (int i = 0; i < BotHandler.Bot.Inventory.Inventory.Count; i++)
 		{
-			if (Main.Bot.Inventory.Inventory[i] is not null) continue;
+			if (BotHandler.Bot.Inventory.Inventory[i] is not null) continue;
 
 			ClickableComponent cc = clickableComponents[i];
 			menu.receiveLeftClick(cc.bounds.X,cc.bounds.Y);
@@ -22,15 +22,15 @@ public static class InventoryUtils
 	/// </summary>
 	public static void AddToInventory(Item item, List<ClickableComponent> clickableComponents, IClickableMenu menu)
 	{
-		if (!Main.Bot.Inventory.Inventory.Any(i => i is not null && i.ItemId == item.ItemId))
+		if (!BotHandler.Bot.Inventory.Inventory.Any(i => i is not null && i.ItemId == item.ItemId))
 		{
 			ClickFirstEmptySlot(clickableComponents,menu);
 			return;
 		}
 		
-		for (int i = 0; i < Main.Bot.Inventory.Inventory.Count; i++)
+		for (int i = 0; i < BotHandler.Bot.Inventory.Inventory.Count; i++)
 		{
-			Item? inventoryItem = Main.Bot.Inventory.Inventory[i];
+			Item? inventoryItem = BotHandler.Bot.Inventory.Inventory[i];
 			if (inventoryItem is null || inventoryItem.ItemId != item.ItemId) continue;
 
 			ClickableComponent cc = clickableComponents[i];
@@ -52,7 +52,7 @@ public static class InventoryUtils
 	{
 		foreach (var item in items)
 		{
-			foreach (var i in Main.Bot.Inventory.Inventory)
+			foreach (var i in BotHandler.Bot.Inventory.Inventory)
 			{
 				if (i is null) continue;
 				if (item.ItemId != i.ItemId) continue;
@@ -69,11 +69,11 @@ public static class InventoryUtils
 
 	public static bool CanFitAmount(int count)
 	{
-		if (Main.Bot.Inventory.Inventory.Any(item => item is null))
+		if (BotHandler.Bot.Inventory.Inventory.Any(item => item is null))
 		{
-			return count > Main.Bot.Inventory.Inventory.Count(item => item is not null) - Main.Bot.Inventory.Inventory.Count;
+			return count > BotHandler.Bot.Inventory.Inventory.Count(item => item is not null) - BotHandler.Bot.Inventory.Inventory.Count;
 		}
 		
-		return count > Main.Bot.Inventory.MaxInventory - Main.Bot.Inventory.Inventory.Count;
+		return count > BotHandler.Bot.Inventory.MaxInventory - BotHandler.Bot.Inventory.Inventory.Count;
 	}
 }

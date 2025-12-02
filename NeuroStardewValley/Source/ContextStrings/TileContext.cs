@@ -61,19 +61,19 @@ public static class TileContext
                 }
                 object? obj = TileUtilities.GetTileType(location, new Point(x, y));
                 
-                if (!Main.Bot._currentLocation.isCollidingPosition(rect, Game1.viewport, true, 0, 
-                        false, Main.Bot._farmer, true,false,false,true)
+                if (!BotHandler.CurrentLocation.isCollidingPosition(rect, Game1.viewport, true, 0, 
+                        false, BotHandler.Farmer, true,false,false,true)
                     && obj is null)
                     continue;
 
                 if (obj is null)
                 {
                     string tileString = $"Block: {x},{y}";
-                    if (location.isActionableTile(x, y, Main.Bot._farmer))
+                    if (location.isActionableTile(x, y, BotHandler.Farmer))
                     {
                         tileString += " has an action";
                         ActionableTiles.Add(new Point(x, y));
-                        string[] action = ArgUtility.SplitBySpace(Main.Bot._currentLocation.doesTileHaveProperty(x, y, "Action", "Buildings"));
+                        string[] action = ArgUtility.SplitBySpace(BotHandler.CurrentLocation.doesTileHaveProperty(x, y, "Action", "Buildings"));
                         if (action.Length < 1)
                         {
                             tileList.Add(tileString);
@@ -154,10 +154,10 @@ public static class TileContext
                 
                 if (obj is null)
                 {
-                    if (!location.isActionableTile(x,y,Main.Bot._farmer)) continue;
+                    if (!location.isActionableTile(x,y,BotHandler.Farmer)) continue;
                     
                     ActionableTiles.Add(new Point(x, y));
-                    string[] action = ArgUtility.SplitBySpace(Main.Bot._currentLocation.doesTileHaveProperty(x, y, "Action", "Buildings"));
+                    string[] action = ArgUtility.SplitBySpace(BotHandler.CurrentLocation.doesTileHaveProperty(x, y, "Action", "Buildings"));
                     if (action.Length < 1)
                     {
                         objectTiles.Add(new Point(x,y),"Action");
@@ -292,7 +292,7 @@ public static class TileContext
             case Object objectValue:
                 return $"{x},{y}, Name: {objectValue.DisplayName}{(objectValue.heldObject.Value is not null ? $", holding an {objectValue.heldObject.Value.DisplayName}" : "")}"; 
             case Building building:
-                if (building.isActionableTile(x, y, Main.Bot._farmer))
+                if (building.isActionableTile(x, y, BotHandler.Farmer))
                 {
                     return $"{x},{y} has an action for the {StringUtilities.GetBuildingName(building)}";
                 }
@@ -431,7 +431,7 @@ public static class TileContext
                 return $" {kvp.Key.X} {kvp.Key.Y} CommunityCenter {32} {23}";
             case "WarpGreenhouse":
                 GameLocation greenhouse = Game1.getLocationFromName("Greenhouse");
-                if (!Main.Bot._farmer.mailReceived.Contains("ccPantry") || greenhouse == null) return "";
+                if (!BotHandler.Farmer.mailReceived.Contains("ccPantry") || greenhouse == null) return "";
                 int destinationX = 10;
                 int destinationY = 23;
                 foreach (var w in greenhouse.warps.Where(w => w.TargetName == "Farm"))
@@ -494,13 +494,13 @@ public static class TileContext
     public static Dictionary<Point, string?> GetActionAndTile()
     {
         Dictionary<Point, string?> actions = new();
-        for (int x = 0; x < Main.Bot._currentLocation.Map.DisplayWidth / 64; x++)
+        for (int x = 0; x < BotHandler.CurrentLocation.Map.DisplayWidth / 64; x++)
         {
-            for (int y = 0; y < Main.Bot._currentLocation.Map.DisplayHeight / 64; y++)
+            for (int y = 0; y < BotHandler.CurrentLocation.Map.DisplayHeight / 64; y++)
             {
                 if (!TileUtilities.Actionable(new Point(x,y))) continue;
                 
-                actions.Add(new Point(x,y),Main.Bot._currentLocation.doesTileHaveProperty(x, y, "Action", "Buildings"));
+                actions.Add(new Point(x,y),BotHandler.CurrentLocation.doesTileHaveProperty(x, y, "Action", "Buildings"));
             }
         }
 

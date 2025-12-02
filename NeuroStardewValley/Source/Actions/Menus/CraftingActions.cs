@@ -21,7 +21,7 @@ public class CraftingActions
 
 		protected override void Execute()
 		{ 
-			Main.Bot.CraftingMenu.SetPageUI();
+			BotHandler.Bot.CraftingMenu.SetPageUI();
 		}
 	}
 	private class CraftItem : NeuroAction<KeyValuePair<CraftingRecipe,int>>
@@ -55,7 +55,7 @@ public class CraftingActions
 			}
 			
 			CraftingRecipe? recipe = null;
-			var craftingRecipes = Main.Bot.CraftingMenu.GetAllItems();
+			var craftingRecipes = BotHandler.Bot.CraftingMenu.GetAllItems();
 			for (int i = 0; i < craftingRecipes.Count; i++)
 			{
 				var recipes = craftingRecipes[i].Values.Where(crafting => crafting.DisplayName == recipeString).ToList();
@@ -73,11 +73,11 @@ public class CraftingActions
 			foreach (var kvp in recipe.recipeList)
 			{
 				Item item = ItemRegistry.Create(kvp.Key, kvp.Value);
-				List<Item> items = Main.Bot.Inventory.Inventory.Where(i => i is not null && i.Name == item.Name).ToList();
+				List<Item> items = BotHandler.Bot.Inventory.Inventory.Where(i => i is not null && i.Name == item.Name).ToList();
 				if (items.Count < 1) return ExecutionResult.Failure($"You do not have the {item.DisplayName} necessary to create this.");
 				
-				int index = Main.Bot.Inventory.Inventory.IndexOf(items[0]);
-				int createAmount = Main.Bot.Inventory.Inventory[index].Stack / item.Stack;
+				int index = BotHandler.Bot.Inventory.Inventory.IndexOf(items[0]);
+				int createAmount = BotHandler.Bot.Inventory.Inventory[index].Stack / item.Stack;
 				if (lowestMaxAmount < createAmount) lowestMaxAmount = createAmount;
 			}
 
@@ -92,36 +92,36 @@ public class CraftingActions
 
 		protected override void Execute(KeyValuePair<CraftingRecipe, int> resultData)
 		{
-			for (int i = 0; i < Main.Bot.CraftingMenu.GetAllItems().Count; i++) // change page
+			for (int i = 0; i < BotHandler.Bot.CraftingMenu.GetAllItems().Count; i++) // change page
 			{
-				if (!Main.Bot.CraftingMenu.GetAllItems()[i].ContainsValue(resultData.Key)) continue;
+				if (!BotHandler.Bot.CraftingMenu.GetAllItems()[i].ContainsValue(resultData.Key)) continue;
 				
-				if (i == Main.Bot.CraftingMenu.CurrentPage) break;
+				if (i == BotHandler.Bot.CraftingMenu.CurrentPage) break;
 
-				if (i > Main.Bot.CraftingMenu.CurrentPage)
+				if (i > BotHandler.Bot.CraftingMenu.CurrentPage)
 				{
-					for (int j = Main.Bot.CraftingMenu.CurrentPage; j < i; j++)
+					for (int j = BotHandler.Bot.CraftingMenu.CurrentPage; j < i; j++)
 					{
-						Main.Bot.CraftingMenu.ChangePage(false);
+						BotHandler.Bot.CraftingMenu.ChangePage(false);
 					}
 				}
 				else
 				{
-					for (int j = Main.Bot.CraftingMenu.CurrentPage; j > i; j--)
+					for (int j = BotHandler.Bot.CraftingMenu.CurrentPage; j > i; j--)
 					{
-						Main.Bot.CraftingMenu.ChangePage(true);
+						BotHandler.Bot.CraftingMenu.ChangePage(true);
 					}
 				}
 			}
 			
-			Main.Bot.CraftingMenu.CraftItem(resultData.Key, resultData.Value);
-			InventoryUtils.ClickFirstEmptySlot(Main.Bot.CraftingMenu.Menu.inventory.inventory,Main.Bot.CraftingMenu.Menu);
+			BotHandler.Bot.CraftingMenu.CraftItem(resultData.Key, resultData.Value);
+			InventoryUtils.ClickFirstEmptySlot(BotHandler.Bot.CraftingMenu.Menu.inventory.inventory,BotHandler.Bot.CraftingMenu.Menu);
 			RegisterActions();
 		}
 
 		private static List<string> GetSchema()
 		{
-			var recipes = Main.Bot.CraftingMenu.GetAllItems();
+			var recipes = BotHandler.Bot.CraftingMenu.GetAllItems();
 
 			List<string> itemStrings = new();
 			foreach (var dict in recipes)
@@ -145,7 +145,7 @@ public class CraftingActions
 			// if is null
 			try
 			{
-				Main.Bot.CraftingMenu.Menu.readyToClose();
+				BotHandler.Bot.CraftingMenu.Menu.readyToClose();
 			}
 			catch (Exception e)
 			{
@@ -158,7 +158,7 @@ public class CraftingActions
 
 		protected override void Execute()
 		{
-			Main.Bot.CraftingMenu.RemoveMenu();
+			BotHandler.Bot.CraftingMenu.RemoveMenu();
 		}
 	}
 
@@ -179,14 +179,14 @@ public class CraftingActions
 
 	private static string CanCraftContext()
 	{
-		var recipes = Main.Bot.CraftingMenu.GetAllItems();
+		var recipes = BotHandler.Bot.CraftingMenu.GetAllItems();
 
 		string itemStrings = "";
 		foreach (var dict in recipes)
 		{
 			foreach (var kvp in dict.Where(pair => pair.Value.doesFarmerHaveIngredientsInInventory()))
 			{
-				if (!Main.Bot.CraftingMenu.Menu.cooking && kvp.Value.isCookingRecipe) continue;
+				if (!BotHandler.Bot.CraftingMenu.Menu.cooking && kvp.Value.isCookingRecipe) continue;
 				itemStrings += $"\n{kvp.Value.DisplayName}, Ingredients:";
 				foreach (var recipe in kvp.Value.recipeList)
 				{

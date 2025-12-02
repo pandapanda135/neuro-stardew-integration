@@ -37,7 +37,7 @@ public static class QuestLogActions
 			Required = new List<string> { "quest_index" },
 			Properties = new Dictionary<string, JsonSchema>
 			{
-				["quest_index"] = QJS.Enum(Enumerable.Range(0, Main.Bot._farmer.questLog.Count))
+				["quest_index"] = QJS.Enum(Enumerable.Range(0, BotHandler.Farmer.questLog.Count))
 			}
 		};
 		protected override ExecutionResult Validate(ActionData actionData, out int resultData)
@@ -57,7 +57,7 @@ public static class QuestLogActions
 				return ExecutionResult.Failure($"You have provided an invalid index.");
 			}
 
-			if (!Main.Bot.QuestLog.Quests[index].completed.Value || !Main.Bot.QuestLog.Quests[index].HasReward())
+			if (!BotHandler.Bot.QuestLog.Quests[index].completed.Value || !BotHandler.Bot.QuestLog.Quests[index].HasReward())
 			{
 				resultData = -1;
 				return ExecutionResult.Failure($"This quest does not have a reward or you have not completed it.");
@@ -73,12 +73,12 @@ public static class QuestLogActions
 
 			for (int i = 0; i < pageFlips; i++)
 			{
-				Main.Bot.QuestLog.ForwardRightPage();
+				BotHandler.Bot.QuestLog.ForwardRightPage();
 			}
 
-			Main.Bot.QuestLog.OpenQuestIndex(resultData - pageFlips * QuestLog.questsPerPage);
-			Main.Bot.QuestLog.GetReward();
-			Main.Bot.QuestLog.CloseQuest();
+			BotHandler.Bot.QuestLog.OpenQuestIndex(resultData - pageFlips * QuestLog.questsPerPage);
+			BotHandler.Bot.QuestLog.GetReward();
+			BotHandler.Bot.QuestLog.CloseQuest();
 			RegisterActions();
 		}
 	}
@@ -95,7 +95,7 @@ public static class QuestLogActions
 
 		protected override void Execute()
 		{
-			Main.Bot.QuestLog.CloseLog();
+			BotHandler.Bot.QuestLog.CloseLog();
 		}
 	}
 
@@ -131,12 +131,12 @@ public static class QuestLogActions
 			}
 
 			resultData = index;
-			return ExecutionResult.Success($"You have added {Main.Bot.QuestLog.Quests[resultData].questTitle} to your context.");
+			return ExecutionResult.Success($"You have added {BotHandler.Bot.QuestLog.Quests[resultData].questTitle} to your context.");
 		}
 
 		protected override void Execute(int resultData)
 		{
-			Context.Send($"{QuestContext.GetSingleQuest(Main.Bot.QuestLog.Quests[resultData])}",true);
+			Context.Send($"{QuestContext.GetSingleQuest(BotHandler.Bot.QuestLog.Quests[resultData])}",true);
 			RegisterActions();
 		}
 	}

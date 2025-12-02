@@ -51,7 +51,7 @@ public static class ShopKeeperActions
 			case "Clint":
 				return npc.Tile == new Vector2(point.X, point.Y - 1);
 			case "Marnie":
-				return npc.Tile == new Vector2(point.X, point.Y - 1) || npc.Tile == new Vector2(point.X - 1, point.Y - 1) || Main.Bot._farmer.stats.Get("Book_AnimalCatalogue") != 0;
+				return npc.Tile == new Vector2(point.X, point.Y - 1) || npc.Tile == new Vector2(point.X - 1, point.Y - 1) || BotHandler.Farmer.stats.Get("Book_AnimalCatalogue") != 0;
 			case "Gus":
 				// move two down to account for action tile
 				shopPoint = new(npc.TilePoint.X,npc.TilePoint.Y + 2);
@@ -67,12 +67,12 @@ public static class ShopKeeperActions
 		var shops = DataLoader.Shops(Game1.content);
 		List<ShopItemData> items = new List<ShopItemData>();
 		List<ShopData> shopData = new List<ShopData>();
-		if (Main.Bot._currentLocation is Forest && Main.Bot._farmer.achievements.Count > 0)
+		if (BotHandler.CurrentLocation is Forest && BotHandler.Farmer.achievements.Count > 0)
 		{
 			items.AddRange(shops["HatMouse"].Items);
 		}
 		
-		foreach (var npc in Main.Bot._currentLocation.characters)
+		foreach (var npc in BotHandler.CurrentLocation.characters)
 		{
 			if (!ValidShopKeeper(npc,TileContext.GetActionAndTile(),out _)) continue;
 			// TODO: this leads to items from shops different from the one that will actually be opened. Fix this
@@ -115,9 +115,9 @@ public static class ShopKeeperActions
 			Item item = ItemRegistry.Create(itemData.ItemId);
 			if (items.Any(i => i.DisplayName == item.DisplayName)) continue;
 			Logger.Info($"item data price: {itemData.ObjectDisplayName}  {itemData.Price}");
-			if (itemData.Price > Main.Bot._farmer.Money) continue;
+			if (itemData.Price > BotHandler.Farmer.Money) continue;
 				
-			if (itemData.TradeItemId is not null && !Main.Bot.Inventory.Inventory.Any(i
+			if (itemData.TradeItemId is not null && !BotHandler.Bot.Inventory.Inventory.Any(i
 				    => i is not null && i.ItemId == ItemRegistry.Create(itemData.TradeItemId).ItemId))
 			{
 				continue;
@@ -144,7 +144,7 @@ public static class ShopKeeperActions
 			
 		if (itemAmount < 1) return ExecutionResult.Failure($"You must provide a positive amount of items.");
 			
-		if (shopItem.Price * itemAmount > Main.Bot.PlayerInformation.Money) return ExecutionResult.Failure($"You do not have enough money to buy so many {item.DisplayName}");
+		if (shopItem.Price * itemAmount > BotHandler.Bot.PlayerInformation.Money) return ExecutionResult.Failure($"You do not have enough money to buy so many {item.DisplayName}");
 		// TODO: maybe just make this apart of execute so Neuro doesn't have to worry about it
 		if (item.maximumStackSize() < itemAmount) 
 			return ExecutionResult.Failure($"You can only hold {item.maximumStackSize()} {item.DisplayName} at a time," +
@@ -158,16 +158,16 @@ public static class ShopKeeperActions
 	private static async Task ItemExecution(List<Item> items, List<int> amounts)
 	{
 		if (Game1.activeClickableMenu is not ShopMenu shopMenu) return;
-		Main.Bot.Shop.OpenShop(shopMenu);
+		BotHandler.Bot.Shop.OpenShop(shopMenu);
 			
 		for (int i = 0; i < items.Count; i++)
 		{
-			await Main.Bot.Shop.BuyItem(items[i],amounts[i]);
+			await BotHandler.Bot.Shop.BuyItem(items[i],amounts[i]);
 			await Util.WaitForSeconds(0.1);
 		}
 	
 		await Util.WaitForSeconds(1);
-		Main.Bot.Shop.RemoveMenu();
+		BotHandler.Bot.Shop.RemoveMenu();
 	}
 	
 	#endregion
@@ -214,10 +214,10 @@ public static class ShopKeeperActions
 		{
 			try
 			{
-				await Main.Bot.Pathfinding.Goto(new Goal.GetToTile(resultData.X, resultData.Y));
+				await BotHandler.Bot.Pathfinding.Goto(new Goal.GetToTile(resultData.X, resultData.Y));
 				await TaskDispatcher.SwitchToMainThread();
 				
-				Main.Bot.Shop.OpenShopUi(resultData.X,resultData.Y);
+				BotHandler.Bot.Shop.OpenShopUi(resultData.X,resultData.Y);
 				
 				await Util.WaitForSeconds(1,false);
 				// this handles selecting the dialogue option to open the shop menu if it exists
@@ -299,12 +299,12 @@ public static class ShopKeeperActions
 			var shops = DataLoader.Shops(Game1.content);
 			var names = new Dictionary<string, Point>();
 			// Hard coded as there is no other way :(
-			if (Main.Bot._currentLocation is Forest && Main.Bot._farmer.achievements.Count > 0)
+			if (BotHandler.CurrentLocation is Forest && BotHandler.Farmer.achievements.Count > 0)
 			{
 				Logger.Warning($"adding hat mouse");
 				names.Add($"Hat Mouse",new Point(34,95));
 			}
-			foreach (var npc in Main.Bot._currentLocation.characters)
+			foreach (var npc in BotHandler.CurrentLocation.characters)
 			{
 				if (!ValidShopKeeper(npc,actions,out var shopPoint)) continue;
 				foreach (var _ in shops.Where(kvp => kvp.Value.Owners.Any(data => data.IsValid(npc.Name))))

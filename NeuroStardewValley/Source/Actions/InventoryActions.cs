@@ -30,7 +30,7 @@ namespace NeuroStardewValley.Source.Actions;
         }
         protected override void Execute()
         {
-            Main.Bot.PlayerInformation.OpenInventory();
+            BotHandler.Bot.PlayerInformation.OpenInventory();
         }
     }
     private class ExitInventory : NeuroAction
@@ -46,9 +46,9 @@ namespace NeuroStardewValley.Source.Actions;
 
         protected override void Execute()
         {
-            string nameList = InventoryContext.GetInventoryString(Main.Bot.Inventory.Inventory, true, true);
+            string nameList = InventoryContext.GetInventoryString(BotHandler.Bot.Inventory.Inventory, true, true);
             Context.Send($"These are the items in your inventory as of when you last closed it: {nameList}");
-            Main.Bot.PlayerInformation.ExitMenu();
+            BotHandler.Bot.PlayerInformation.ExitMenu();
         }
     }
 
@@ -59,9 +59,9 @@ namespace NeuroStardewValley.Source.Actions;
     private class MoveItem : NeuroAction<Item>
     {
         private int _position;
-        private static Inventory Inventory => Main.Bot.Inventory.Inventory;
+        private static Inventory Inventory => BotHandler.Bot.Inventory.Inventory;
         public override string Name => "move_item";
-        protected override string Description => $"Move an item in inventory to another slot, you have {Main.Bot.Inventory.MaxInventory}" +
+        protected override string Description => $"Move an item in inventory to another slot, you have {BotHandler.Bot.Inventory.MaxInventory}" +
                                                  $" slots in your inventory. If there is already an item in the provided slot, the item will occupy the provided item's previous slot.";
         protected override JsonSchema Schema => new ()
         {
@@ -86,7 +86,7 @@ namespace NeuroStardewValley.Source.Actions;
                 return ExecutionResult.Failure($"An argument you gave was null");
             }
             
-            if (itemPosition > Main.Bot.Inventory.MaxInventory || itemPosition < 0)
+            if (itemPosition > BotHandler.Bot.Inventory.MaxInventory || itemPosition < 0)
             {
                 resultData = null;
                 return ExecutionResult.Failure($"You have given a position that is larger or smaller than the size of your inventory");
@@ -108,7 +108,7 @@ namespace NeuroStardewValley.Source.Actions;
         protected override void Execute(Item? resultData)
         {
             if (resultData is null) return;
-            Main.Bot.Inventory.MoveItem(resultData, _position);
+            BotHandler.Bot.Inventory.MoveItem(resultData, _position);
             RegisterInventoryActions();
         }
         
@@ -138,7 +138,7 @@ namespace NeuroStardewValley.Source.Actions;
             Required = new List<string> { "item", "amount","option" },
             Properties = new Dictionary<string, JsonSchema>
             {
-                ["item"] = QJS.Enum(Main.Bot.Inventory.Inventory.Where(i => i is not null && i.canBeTrashed()).Select(i => Main.Bot.Inventory.Inventory.IndexOf(i)).ToList()),
+                ["item"] = QJS.Enum(BotHandler.Bot.Inventory.Inventory.Where(i => i is not null && i.canBeTrashed()).Select(i => BotHandler.Bot.Inventory.Inventory.IndexOf(i)).ToList()),
                 ["amount"] = QJS.Type(JsonSchemaType.Integer),
                 ["option"] = QJS.Enum(Options)
             }
@@ -161,11 +161,11 @@ namespace NeuroStardewValley.Source.Actions;
             }
 
             Item? item = null;
-            for (int i = 0; i < Main.Bot.Inventory.MaxInventory; i++)
+            for (int i = 0; i < BotHandler.Bot.Inventory.MaxInventory; i++)
             {
-                if (Main.Bot.Inventory.Inventory[i] is not null && i == int.Parse(selectedIndex))
+                if (BotHandler.Bot.Inventory.Inventory[i] is not null && i == int.Parse(selectedIndex))
                 {
-                    item = Main.Bot.Inventory.Inventory[i];
+                    item = BotHandler.Bot.Inventory.Inventory[i];
                 }
             }
 
@@ -189,18 +189,18 @@ namespace NeuroStardewValley.Source.Actions;
             GameMenu? menu = Game1.activeClickableMenu as GameMenu;
             if (menu?.GetCurrentPage() is not InventoryPage page) return;
             
-            Main.Bot.Inventory.SetPage(page);
+            BotHandler.Bot.Inventory.SetPage(page);
             int stack = resultData.Value == 0 ? resultData.Key.Stack : resultData.Value;
             
-            Main.Bot.Inventory.SetHeldItem(resultData.Key,stack);
+            BotHandler.Bot.Inventory.SetHeldItem(resultData.Key,stack);
             if (_selectedOption == "bin")
             {
-                Main.Bot.Inventory.Hover(Main.Bot.Inventory.Page.trashCan,1);
-                Main.Bot.Inventory.ClickBin();
+                BotHandler.Bot.Inventory.Hover(BotHandler.Bot.Inventory.Page.trashCan,1);
+                BotHandler.Bot.Inventory.ClickBin();
             }
             else
             {
-                Main.Bot.Inventory.ClickOutOfBounds();
+                BotHandler.Bot.Inventory.ClickOutOfBounds();
             }
             RegisterInventoryActions();
         }
@@ -236,7 +236,7 @@ namespace NeuroStardewValley.Source.Actions;
             {
                 ["slot"] = QJS.Enum(TrinketSlots()), // explain what these are as I don't even know
                 ["action"] = QJS.Enum(TrinketAction()),
-                ["inventory_slot"] = QJS.Enum(Enumerable.Range(0,Main.Bot.Inventory.MaxInventory - 1))
+                ["inventory_slot"] = QJS.Enum(Enumerable.Range(0,BotHandler.Bot.Inventory.MaxInventory - 1))
             }
         };
         protected override ExecutionResult Validate(ActionData actionData, out Dictionary<string,string>? resultData)
@@ -265,7 +265,7 @@ namespace NeuroStardewValley.Source.Actions;
                 return ExecutionResult.Failure($"{action} is not a valid action");
             }
 
-            if (Enumerable.Range(0, Main.Bot.Inventory.MaxInventory - 1).Contains(int.Parse(inventory)))
+            if (Enumerable.Range(0, BotHandler.Bot.Inventory.MaxInventory - 1).Contains(int.Parse(inventory)))
             {
                 resultData = null;
                 return ExecutionResult.Failure($"{inventory} is not a valid inventory slot");
@@ -286,12 +286,12 @@ namespace NeuroStardewValley.Source.Actions;
             if (resultData["Action"] == "Equip")
             {
                 Trinket? trinket = Game1.player.trinketItems[int.Parse(resultData["Inventory"])];
-                Main.Bot.Inventory.EquipTrinket(trinket,int.Parse(resultData["TrinketSlot"]));
+                BotHandler.Bot.Inventory.EquipTrinket(trinket,int.Parse(resultData["TrinketSlot"]));
             }
             else
             {
                 Trinket? trinket = Game1.player.trinketItems[int.Parse(resultData["TrinketSlot"])];
-                Main.Bot.Inventory.RemoveTrinket(trinket);
+                BotHandler.Bot.Inventory.RemoveTrinket(trinket);
             }
             RegisterInventoryActions();
         }
@@ -319,7 +319,7 @@ namespace NeuroStardewValley.Source.Actions;
             {
                 ["slot"] = QJS.Enum(Slots()),
                 ["action"] = QJS.Enum(Actions()),
-                ["inventory_slot"] = QJS.Enum(Enumerable.Range(0, Main.Bot.Inventory.MaxInventory))
+                ["inventory_slot"] = QJS.Enum(Enumerable.Range(0, BotHandler.Bot.Inventory.MaxInventory))
             }
         };
         protected override ExecutionResult Validate(ActionData actionData, out Dictionary<string,string>? resultData)
@@ -347,11 +347,11 @@ namespace NeuroStardewValley.Source.Actions;
             }
 
             if (inventory is not null && action == "Equip" &&
-                (!Enumerable.Range(0, Main.Bot.Inventory.MaxInventory).Contains(int.Parse(inventory)) ||
-                 Main.Bot.Inventory.Inventory[int.Parse(inventory)] is not Clothing or Ring or Boots or Hat))
+                (!Enumerable.Range(0, BotHandler.Bot.Inventory.MaxInventory).Contains(int.Parse(inventory)) ||
+                 BotHandler.Bot.Inventory.Inventory[int.Parse(inventory)] is not Clothing or Ring or Boots or Hat))
             {
                 resultData = new();
-                return ExecutionResult.Failure($"inventory slot was not set correctly, you can only give a slot that is between 0 and {Main.Bot.Inventory.MaxInventory} and is a piece of clothing.");
+                return ExecutionResult.Failure($"inventory slot was not set correctly, you can only give a slot that is between 0 and {BotHandler.Bot.Inventory.MaxInventory} and is a piece of clothing.");
             }
             
             resultData = new()
@@ -372,28 +372,28 @@ namespace NeuroStardewValley.Source.Actions;
             switch (resultData["slot"])
             {
                 case "hat":
-                    if (resultData["action"] == "Unequip") Main.Bot.Inventory.ChangeHat(null);
-                    else Main.Bot.Inventory.ChangeHat((Hat)Game1.player.Items[int.Parse(resultData["inventory_slot"])]);
+                    if (resultData["action"] == "Unequip") BotHandler.Bot.Inventory.ChangeHat(null);
+                    else BotHandler.Bot.Inventory.ChangeHat((Hat)Game1.player.Items[int.Parse(resultData["inventory_slot"])]);
                     break;
                 case "shirt":
-                    if (resultData["action"] == "Unequip") Main.Bot.Inventory.ChangeClothing(true, null);
-                    else Main.Bot.Inventory.ChangeClothing(true, (Clothing)Game1.player.Items[int.Parse(resultData["inventory_slot"])]);
+                    if (resultData["action"] == "Unequip") BotHandler.Bot.Inventory.ChangeClothing(true, null);
+                    else BotHandler.Bot.Inventory.ChangeClothing(true, (Clothing)Game1.player.Items[int.Parse(resultData["inventory_slot"])]);
                     break;
                 case "pants":
-                    if (resultData["action"] == "Unequip") Main.Bot.Inventory.ChangeClothing(false, null);
-                    else Main.Bot.Inventory.ChangeClothing(false, (Clothing)Game1.player.Items[int.Parse(resultData["inventory_slot"])]);
+                    if (resultData["action"] == "Unequip") BotHandler.Bot.Inventory.ChangeClothing(false, null);
+                    else BotHandler.Bot.Inventory.ChangeClothing(false, (Clothing)Game1.player.Items[int.Parse(resultData["inventory_slot"])]);
                     break;
                 case "top_ring":
-                    if (resultData["action"] == "Unequip") Main.Bot.Inventory.ChangeRings(null,true);
-                    else Main.Bot.Inventory.ChangeRings((Ring)Game1.player.Items[int.Parse(resultData["inventory_slot"])], true);
+                    if (resultData["action"] == "Unequip") BotHandler.Bot.Inventory.ChangeRings(null,true);
+                    else BotHandler.Bot.Inventory.ChangeRings((Ring)Game1.player.Items[int.Parse(resultData["inventory_slot"])], true);
                     break;
                 case "bottom_ring":
-                    if (resultData["action"] == "Unequip") Main.Bot.Inventory.ChangeRings(null,false);
-                    else Main.Bot.Inventory.ChangeRings((Ring)Game1.player.Items[int.Parse(resultData["inventory_slot"])], false);
+                    if (resultData["action"] == "Unequip") BotHandler.Bot.Inventory.ChangeRings(null,false);
+                    else BotHandler.Bot.Inventory.ChangeRings((Ring)Game1.player.Items[int.Parse(resultData["inventory_slot"])], false);
                     break;
                 case "boots":
-                    if (resultData["action"] == "Unequip") Main.Bot.Inventory.ChangeBoots(null);
-                    else Main.Bot.Inventory.ChangeBoots((Boots)Game1.player.Items[int.Parse(resultData["inventory_slot"])]);
+                    if (resultData["action"] == "Unequip") BotHandler.Bot.Inventory.ChangeBoots(null);
+                    else BotHandler.Bot.Inventory.ChangeBoots((Boots)Game1.player.Items[int.Parse(resultData["inventory_slot"])]);
                     break;
             }
             RegisterInventoryActions();
@@ -416,8 +416,8 @@ namespace NeuroStardewValley.Source.Actions;
             Required = new List<string> { "item_to_attach", "attached_item" },
             Properties = new Dictionary<string, JsonSchema>
             {
-                ["item_to_attach"] = QJS.Enum(Enumerable.Range(0,Main.Bot.Inventory.MaxInventory)), // item to attach
-                ["attached_item"] = QJS.Enum(Enumerable.Range(0,Main.Bot.Inventory.MaxInventory)) // item we attach to
+                ["item_to_attach"] = QJS.Enum(Enumerable.Range(0,BotHandler.Bot.Inventory.MaxInventory)), // item to attach
+                ["attached_item"] = QJS.Enum(Enumerable.Range(0,BotHandler.Bot.Inventory.MaxInventory)) // item we attach to
             }
         };
         protected override ExecutionResult Validate(ActionData actionData, out KeyValuePair<Item, Item> resultData)
@@ -431,14 +431,14 @@ namespace NeuroStardewValley.Source.Actions;
                 return ExecutionResult.Failure($"You have not selected both items.");
             }
             
-            if (!Enumerable.Range(0, Main.Bot.Inventory.MaxInventory).Contains((int)item) ||
-                !Enumerable.Range(0, Main.Bot.Inventory.MaxInventory).Contains((int)attachToItem))
+            if (!Enumerable.Range(0, BotHandler.Bot.Inventory.MaxInventory).Contains((int)item) ||
+                !Enumerable.Range(0, BotHandler.Bot.Inventory.MaxInventory).Contains((int)attachToItem))
             {
                 return ExecutionResult.Failure($"The index you provided was not a valid index");
             }
 
-            Item toolItem = Main.Bot.Inventory.Inventory[(int)item];
-            Item attachItem = Main.Bot.Inventory.Inventory[(int)attachToItem];
+            Item toolItem = BotHandler.Bot.Inventory.Inventory[(int)item];
+            Item attachItem = BotHandler.Bot.Inventory.Inventory[(int)attachToItem];
             if (toolItem is not Tool tool)
             {
                 return ExecutionResult.Failure($"The index you provided does not point to an item that has an attachment slot.");
@@ -459,7 +459,7 @@ namespace NeuroStardewValley.Source.Actions;
 
         protected override void Execute(KeyValuePair<Item, Item> resultData)
         {
-            Main.Bot.Inventory.AttachItem(resultData.Value,resultData.Key);
+            BotHandler.Bot.Inventory.AttachItem(resultData.Value,resultData.Key);
             RegisterInventoryActions();
         }
     }
@@ -476,7 +476,7 @@ namespace NeuroStardewValley.Source.Actions;
             Required = new List<string> { "item" },
             Properties = new Dictionary<string, JsonSchema>
             {
-                ["item"] = QJS.Enum(Enumerable.Range(0, Main.Bot.Inventory.MaxInventory))
+                ["item"] = QJS.Enum(Enumerable.Range(0, BotHandler.Bot.Inventory.MaxInventory))
             }
         };
         protected override ExecutionResult Validate(ActionData actionData, out Item? resultData)
@@ -489,12 +489,12 @@ namespace NeuroStardewValley.Source.Actions;
                 return ExecutionResult.Failure($"The index you provided was null.");
             }
 
-            if (!Enumerable.Range(0, Main.Bot.Inventory.MaxInventory).Contains((int)index))
+            if (!Enumerable.Range(0, BotHandler.Bot.Inventory.MaxInventory).Contains((int)index))
             {
                 return ExecutionResult.Failure($"The index you provided was not a valid index");
             }
 
-            Item i = Main.Bot.Inventory.Inventory[(int)index];
+            Item i = BotHandler.Bot.Inventory.Inventory[(int)index];
             if (i is not Tool tool)
             {
                 return ExecutionResult.Failure($"The index you provided does not point to an item that has an attachment slot.");
@@ -516,7 +516,7 @@ namespace NeuroStardewValley.Source.Actions;
                 return;
             }
             
-            Main.Bot.Inventory.RemoveAttached(tool);
+            BotHandler.Bot.Inventory.RemoveAttached(tool);
             RegisterInventoryActions();
         }
     }
@@ -528,14 +528,14 @@ namespace NeuroStardewValley.Source.Actions;
     public class ChangeSelectedToolbarSlot : NeuroAction<int>
     	{
     		public override string Name => "change_toolbar_slot";
-    		protected override string Description => $"Change currently selected toolbar slot, the slots available are between 0,{Main.Bot._farmer.MaxItems}.";
+    		protected override string Description => $"Change currently selected toolbar slot, the slots available are between 0,{BotHandler.Farmer.MaxItems}.";
     		protected override JsonSchema Schema => new()
     		{
     			Type = JsonSchemaType.Object,
     			Required = new List<string> { "slot" },
     			Properties = new Dictionary<string, JsonSchema>
     			{
-    				["slot"] = QJS.Enum(Enumerable.Range(0, Main.Bot._farmer.MaxItems))
+    				["slot"] = QJS.Enum(Enumerable.Range(0, BotHandler.Farmer.MaxItems))
     			}
     		};
             
@@ -551,7 +551,7 @@ namespace NeuroStardewValley.Source.Actions;
                 
     			int slot = int.Parse(slotStr);
     
-    			if (!Enumerable.Range(0, Main.Bot._farmer.MaxItems).Contains(slot))
+    			if (!Enumerable.Range(0, BotHandler.Farmer.MaxItems).Contains(slot))
     			{
     				resultData = -1;
     				return ExecutionResult.Failure($"{slot} is not a valid slot index");
@@ -566,11 +566,11 @@ namespace NeuroStardewValley.Source.Actions;
     			int? toolbarRotates = resultData / 12;
     			for (int i = 0; i < toolbarRotates; i++)
     			{
-    				Main.Bot.Inventory.SelectInventoryRowForToolbar(true);
+    				BotHandler.Bot.Inventory.SelectInventoryRowForToolbar(true);
     				resultData -= 12;
     			}
     			
-    			Main.Bot.Inventory.SelectSlot(resultData);
+    			BotHandler.Bot.Inventory.SelectSlot(resultData);
     		}
     	}
 
@@ -582,16 +582,16 @@ namespace NeuroStardewValley.Source.Actions;
         actionWindow.AddAction(new MoveItem()).AddAction(new ExitInventory()).AddAction(new InteractWithTrinkets()).AddAction(new ChangeClothing())
             .AddAction(new CraftingActions.GoToCrafting()).AddAction(new RemoveItem());
         
-        bool attach = Main.Bot.Inventory.Inventory.Any(item => item is Tool tool && tool.AttachmentSlotsCount > 0);
+        bool attach = BotHandler.Bot.Inventory.Inventory.Any(item => item is Tool tool && tool.AttachmentSlotsCount > 0);
         if (attach) actionWindow.AddAction(new AttachItem());
 
-        bool remove = Main.Bot.Inventory.Inventory.Any(item => 
+        bool remove = BotHandler.Bot.Inventory.Inventory.Any(item => 
             item is Tool tool && tool.attachments.Any(att => att is not null));
         if (remove) actionWindow.AddAction(new RemoveFromItem());
 
-        string nameList = InventoryContext.GetInventoryString(Main.Bot.Inventory.Inventory, true, true);
-        List<string> itemList = PrepareItemStringList(Main.Bot.Inventory.GetEquippedClothing()).ToList();
-        List<string> trinkets = Main.Bot.Inventory.GetCurrentEquippedTrinkets(Game1.player)
+        string nameList = InventoryContext.GetInventoryString(BotHandler.Bot.Inventory.Inventory, true, true);
+        List<string> itemList = PrepareItemStringList(BotHandler.Bot.Inventory.GetEquippedClothing()).ToList();
+        List<string> trinkets = BotHandler.Bot.Inventory.GetCurrentEquippedTrinkets(Game1.player)
             .Where(trinket => trinket is not null).Select(trinket => trinket.DisplayName).ToList();
         
         string state = $"These are the items in your inventory: {nameList}" +

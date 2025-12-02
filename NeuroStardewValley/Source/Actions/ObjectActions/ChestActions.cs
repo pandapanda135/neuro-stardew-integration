@@ -71,9 +71,9 @@ public static class ChestActions
 			{
 				if (resultData is null) return;
 			
-				foreach (var kvp in Main.Bot._currentLocation.Objects.Pairs.Where(kvp => kvp.Value == resultData))
+				foreach (var kvp in BotHandler.CurrentLocation.Objects.Pairs.Where(kvp => kvp.Value == resultData))
 				{
-					await Main.Bot.Pathfinding.Goto(new Goal.GetToTile(kvp.Key.ToPoint().X,kvp.Key.ToPoint().Y));
+					await BotHandler.Bot.Pathfinding.Goto(new Goal.GetToTile(kvp.Key.ToPoint().X,kvp.Key.ToPoint().Y));
 					await TaskDispatcher.SwitchToMainThread();
 					Open(resultData);
 				}
@@ -101,7 +101,7 @@ public static class ChestActions
 				return;
 			}
 
-			Main.Bot.Chest.OpenChest(Chest);
+			BotHandler.Bot.Chest.OpenChest(Chest);
 		}
 
 		private static List<string> GetChestsLocations(out List<Chest> chests)
@@ -134,8 +134,8 @@ public static class ChestActions
 		protected override void Execute()
 		{
 			if (Chest is null) return;
-			Main.Bot.Chest.CloseChest();
-			Main.Bot.ItemGrabMenu.RemoveMenu(); // do this as colour changing is in here
+			BotHandler.Bot.Chest.CloseChest();
+			BotHandler.Bot.ItemGrabMenu.RemoveMenu(); // do this as colour changing is in here
 		}
 	}
 	
@@ -154,7 +154,7 @@ public static class ChestActions
 				["item_index"] = new()
 				{
 					Type = JsonSchemaType.Array,
-					Items = new JsonSchema { Enum = ItemEnum(Main.Bot.Inventory.Inventory)},
+					Items = new JsonSchema { Enum = ItemEnum(BotHandler.Bot.Inventory.Inventory)},
 				},
 				["amount"] = new()
 				{
@@ -186,13 +186,13 @@ public static class ChestActions
 			{
 				if (token.Value<string?>() is null) continue;
 				
-				// if (token.Value<string>() < 0 || token.Value<string>() > Main.Bot.Inventory.Inventory.Count - 1 || Main.Bot.Inventory.Inventory[token.Value<string>()] is null)
+				// if (token.Value<string>() < 0 || token.Value<string>() > BotHandler.Bot.Inventory.Inventory.Count - 1 || BotHandler.Bot.Inventory.Inventory[token.Value<string>()] is null)
 					// return ExecutionResult.Failure($"{token.Value<int>()} cannot be accessed.");
 				
 				itemStrings.Add(token.Value<string>() ?? string.Empty);
 			}
 
-			List<Item> items = EnumToItem(Main.Bot.Inventory.Inventory,itemStrings);
+			List<Item> items = EnumToItem(BotHandler.Bot.Inventory.Inventory,itemStrings);
 			
 			if (items.Count != amount.Count) return ExecutionResult.Failure($"You have specified {items.Count} items and only specified {amount.Count} item's amount, you need to specify the same amount of each.");
 
@@ -222,7 +222,7 @@ public static class ChestActions
 			if (Chest is null) return;
 			for (int i = 0; i < resultData.Key.Count; i++)
 			{
-				Main.Bot.ItemGrabMenu.AddItemAmount(resultData.Key[i],resultData.Value[i]);
+				BotHandler.Bot.ItemGrabMenu.AddItemAmount(resultData.Key[i],resultData.Value[i]);
 			}
 			
 			RegisterChestActions();
@@ -242,7 +242,7 @@ public static class ChestActions
 				["item_index"] = new()
 				{
 					Type = JsonSchemaType.Array,
-					Items = new JsonSchema { Enum =  ItemEnum(Main.Bot.Chest.GetItems(Chest!))}
+					Items = new JsonSchema { Enum =  ItemEnum(BotHandler.Bot.Chest.GetItems(Chest!))}
 				},
 				["amount"] = new()
 				{
@@ -277,7 +277,7 @@ public static class ChestActions
 				itemStrings.Add(token.Value<string>() ?? string.Empty);
 			}
 
-			List<Item> items = EnumToItem(Main.Bot.ItemGrabMenu.Menu.ItemsToGrabMenu.actualInventory.ToList(),itemStrings);
+			List<Item> items = EnumToItem(BotHandler.Bot.ItemGrabMenu.Menu.ItemsToGrabMenu.actualInventory.ToList(),itemStrings);
 			
 			if (items.Count != amount.Count) return ExecutionResult.Failure($"You have specified {items.Count} items and only specified {amount.Count} item's amount, you need to specify the same amount of each.");
 
@@ -305,11 +305,11 @@ public static class ChestActions
 			if (Chest is null) return;
 			for (int i = 0; i < resultData.Key.Count; i++)
 			{
-				Item? item = Main.Bot.ItemGrabMenu.GetItemAmount(Chest.Items.ToList(),resultData.Key[i], resultData.Value[i]);
+				Item? item = BotHandler.Bot.ItemGrabMenu.GetItemAmount(Chest.Items.ToList(),resultData.Key[i], resultData.Value[i]);
 				if (item is null) continue;
 				// Can't find a way to take and add :(
-				Main.Bot.Chest.TakeItemFromChest(Chest,item,Main.Bot._farmer);
-				Main.Bot._farmer.addItemToInventory(item);
+				BotHandler.Bot.Chest.TakeItemFromChest(Chest,item,BotHandler.Farmer);
+				BotHandler.Farmer.addItemToInventory(item);
 			}
 			
 			RegisterChestActions();
@@ -322,12 +322,12 @@ public static class ChestActions
 		ActionWindow window = ActionWindow.Create(Main.GameInstance);
 
 		window.AddAction(new CloseChest()).AddAction(new AddItemsToChest()).AddAction(new TakeItemsFromChest());
-		if (Main.Bot.ItemGrabMenu.Menu.colorPickerToggleButton.visible) window.AddAction(new ItemGrabActions.SelectColour());
+		if (BotHandler.Bot.ItemGrabMenu.Menu.colorPickerToggleButton.visible) window.AddAction(new ItemGrabActions.SelectColour());
 		
 		string nameList = InventoryContext.GetInventoryString(Chest!.Items, true);
 		window.SetForce(0,$"You are now interacting with a chest", 
 			$"These are the items in this chest: {nameList}.\n This is your inventory: " +
-			$"{InventoryContext.GetInventoryString(Main.Bot.Inventory.Inventory,true)}",true);
+			$"{InventoryContext.GetInventoryString(BotHandler.Bot.Inventory.Inventory,true)}",true);
 		window.Register();
 	}
 
@@ -433,12 +433,12 @@ public static class ChestActions
 				Chest? previousChest = null;
 				foreach (var chest in GetNearestChests().Where(resultData.ContainsKey))
 				{
-					if (Game1.activeClickableMenu is ItemGrabMenu && chest != previousChest) Main.Bot.Chest.CloseChest();
+					if (Game1.activeClickableMenu is ItemGrabMenu && chest != previousChest) BotHandler.Bot.Chest.CloseChest();
 					previousChest = chest;
 					
 					await TileUtilities.PathfindToObject(chest);
 					await Util.WaitForSeconds(0.3);
-					Main.Bot.Chest.OpenChest(chest);
+					BotHandler.Bot.Chest.OpenChest(chest);
 					await Util.WaitForSeconds(0.3);
 					
 					// if bot couldn't open chest for whatever reason
@@ -447,15 +447,15 @@ public static class ChestActions
 					for (int i = 0; i < resultData[chest].Count; i++)
 					{
 						// TODO: this does remove the correct amount of the item it just doesn't add it to the inventory. There is a temporary solution but I don't like it.
-						Main.Bot.ItemGrabMenu.RemoveItemAmount(resultData[chest][i],_quantities[chest][i].Quantity);
+						BotHandler.Bot.ItemGrabMenu.RemoveItemAmount(resultData[chest][i],_quantities[chest][i].Quantity);
 						var item = resultData[chest][i].getOne();
 						item.Stack = _quantities[chest][i].Quantity;
-						Main.Bot._farmer.addItemToInventory(item);
+						BotHandler.Farmer.addItemToInventory(item);
 						await Util.WaitForSeconds(0.3);
 					}
 				}
 				
-				Main.Bot.Chest.CloseChest();
+				BotHandler.Bot.Chest.CloseChest();
 			}
 			catch (Exception e)
 			{
@@ -495,7 +495,7 @@ public static class ChestActions
 						Required = { "item", "quantity" },
 						Properties =
 						{
-							["item"] = new() { Type = JsonSchemaType.String, Enum = ItemEnum(Main.Bot.Inventory.Inventory)},
+							["item"] = new() { Type = JsonSchemaType.String, Enum = ItemEnum(BotHandler.Bot.Inventory.Inventory)},
 							["quantity"] = new()
 							{
 								Type = JsonSchemaType.Integer,
@@ -525,8 +525,8 @@ public static class ChestActions
 					$"You provided invalid json, look at this error message and think about the many mistakes" +
 					$" you have made in your life to get to this point. {e}");
 			}
-			var jsonItems = EnumToItem(Main.Bot.Inventory.Inventory, items.Select(json => json.Item).ToList());
-			resultData = ItemJsonToItem(items, Main.Bot.Inventory.Inventory, jsonItems);
+			var jsonItems = EnumToItem(BotHandler.Bot.Inventory.Inventory, items.Select(json => json.Item).ToList());
+			resultData = ItemJsonToItem(items, BotHandler.Bot.Inventory.Inventory, jsonItems);
 			
 			if (resultData.Key.Count == items.Count && resultData.Value.Count == items.Count)
 				return ExecutionResult.Success($"Adding items to the nearest chests.");
@@ -578,30 +578,30 @@ public static class ChestActions
 					if (previousChest is not null && previousChest.TileLocation != chest.TileLocation)
 					{
 						RegisterMainActions.BlockRegistering = true;
-						Main.Bot.Chest.CloseChest();
+						BotHandler.Bot.Chest.CloseChest();
 					}
 
 					previousChest = chest;
 
 					if (Game1.activeClickableMenu is ItemGrabMenu)
 					{
-						Main.Bot.ItemGrabMenu.AddItemAmount(item, amount);
+						BotHandler.Bot.ItemGrabMenu.AddItemAmount(item, amount);
 						continue;
 					}
 			
 					await TileUtilities.PathfindToObject(chest);
 					await Util.WaitForSeconds(0.3);
-					Main.Bot.Chest.OpenChest(chest);
+					BotHandler.Bot.Chest.OpenChest(chest);
 					await Util.WaitForSeconds(0.3);	
 					
 					// if bot couldn't open chest for whatever reason
 					if (Game1.activeClickableMenu is not ItemGrabMenu) continue;
 
-					Main.Bot.ItemGrabMenu.AddItemAmount(item, amount);
+					BotHandler.Bot.ItemGrabMenu.AddItemAmount(item, amount);
 				}
 
 				await Util.WaitForSeconds(0.75);
-				Main.Bot.Chest.CloseChest();
+				BotHandler.Bot.Chest.CloseChest();
 			}
 			catch (Exception e)
 			{
@@ -616,7 +616,7 @@ public static class ChestActions
 	{
 		List<Chest> chests = new();
 
-		foreach (var kvp in Main.Bot._currentLocation.Objects.Pairs)
+		foreach (var kvp in BotHandler.CurrentLocation.Objects.Pairs)
 		{
 			if (kvp.Value is not Chest chest) continue;
 			

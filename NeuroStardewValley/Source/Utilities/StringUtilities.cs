@@ -171,7 +171,7 @@ public static class StringUtilities
 	public static List<string> GetAnimalsPerBuilding(Func<Building,int?,Dictionary<string, int>?,string>? additionalContextFunc = null)
 	{
 		List<string> usedBuildingTypes = new();
-		return Main.Bot._currentLocation.buildings.Where(building => building.HasIndoors()).Select(building =>
+		return BotHandler.CurrentLocation.buildings.Where(building => building.HasIndoors()).Select(building =>
 			FormatAnimalAmount(building, ref usedBuildingTypes, additionalContextFunc)).ToList();
 	}
 

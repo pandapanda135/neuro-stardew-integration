@@ -41,7 +41,7 @@ public static class ToolActions
             Required = new List<string> { "item" },
             Properties = new Dictionary<string, JsonSchema>
             {
-                ["item"] = QJS.Enum(Main.Bot.Inventory.Inventory.Where(item => item is not null).Select(item => item.DisplayName).ToList()),
+                ["item"] = QJS.Enum(BotHandler.Bot.Inventory.Inventory.Where(item => item is not null).Select(item => item.DisplayName).ToList()),
                 ["direction"] = QJS.Enum(Directions),
                 ["tile_x"] = QJS.Type(JsonSchemaType.Integer),
                 ["tile_y"] = QJS.Type(JsonSchemaType.Integer),
@@ -64,7 +64,7 @@ public static class ToolActions
                 return ExecutionResult.Failure($"You have not provided the item to use");
             }
 
-            string[] items = Main.Bot.Inventory.Inventory.Where(item1 => item1 is not null).Select(tool => tool.DisplayName).ToArray();
+            string[] items = BotHandler.Bot.Inventory.Inventory.Where(item1 => item1 is not null).Select(tool => tool.DisplayName).ToArray();
             if (!items.Contains(item)) ExecutionResult.Failure($"{item} is not a valid item");
 
             _direction = "";
@@ -87,7 +87,7 @@ public static class ToolActions
 	            return ExecutionResult.Failure($"You must specify a tile or direction or both to use this action.");
             }
             
-            foreach (var i in Main.Bot.Inventory.Inventory)
+            foreach (var i in BotHandler.Bot.Inventory.Inventory)
             {
                 if (i is null) continue;
 
@@ -127,7 +127,7 @@ public static class ToolActions
             {
 	            try
 	            {
-		            await Main.Bot.Pathfinding.Goto(new Goal.GetToTile(_tile.X, _tile.Y)); // get direction of final this to point
+		            await BotHandler.Bot.Pathfinding.Goto(new Goal.GetToTile(_tile.X, _tile.Y)); // get direction of final this to point
 		            await TaskDispatcher.SwitchToMainThread();
 	            }
 	            catch (Exception e)
@@ -140,7 +140,7 @@ public static class ToolActions
             }
             
             // get to tile radius
-            if (!Utility.tileWithinRadiusOfPlayer(_tile.X, _tile.Y, 1, Main.Bot._farmer))
+            if (!Utility.tileWithinRadiusOfPlayer(_tile.X, _tile.Y, 1, BotHandler.Farmer))
             {
 	            Context.Send($"The pathfinding could not get you withing radius to the tile you specified, you should try to do something else.");
 	            RegisterMainActions.RegisterPostAction();
@@ -151,21 +151,21 @@ public static class ToolActions
             if (selectedItem is MeleeWeapon) meleeString = selectedItem.Name == "Scythe" ? "Scythe" : "Weapon";
             SwapItemHandler.SwapItem(selectedItem.GetType(),meleeString);
 
-			if (_direction != "") Main.Bot._farmer.FacingDirection = Directions.ToList().IndexOf(_direction);
+			if (_direction != "") BotHandler.Farmer.FacingDirection = Directions.ToList().IndexOf(_direction);
 
             switch (selectedItem)
             {
 	            case not Tool:
 		            if (selectedItem is Object obj && obj.Edibility != -300)
 		            {
-			            Main.Bot.Player.EatHeldItem();
+			            BotHandler.Bot.Player.EatHeldItem();
 		            }
 		            
 		            // this method divides by 64.
-		            if (Utility.isThereAnObjectHereWhichAcceptsThisItem(Main.Bot._currentLocation, selectedItem, _tile.X * 64, _tile.Y * 64))
+		            if (Utility.isThereAnObjectHereWhichAcceptsThisItem(BotHandler.CurrentLocation, selectedItem, _tile.X * 64, _tile.Y * 64))
 		            {
-			            Object objAt = Main.Bot._currentLocation.getObjectAtTile(_tile.X, _tile.Y);
-			            Main.Bot.Player.AddItemToObject(objAt, Main.Bot._farmer.ActiveItem);
+			            Object objAt = BotHandler.CurrentLocation.getObjectAtTile(_tile.X, _tile.Y);
+			            BotHandler.Bot.Player.AddItemToObject(objAt, BotHandler.Farmer.ActiveItem);
 		            }
 
 		            break;
@@ -174,7 +174,7 @@ public static class ToolActions
 			        break;
 			    default:
 		            int direction = Directions.ToList().IndexOf(_direction);
-		            Main.Bot.Tool.UseTool(direction);
+		            BotHandler.Bot.Tool.UseTool(direction);
 		            break;
             }
 
@@ -197,13 +197,13 @@ public static class ToolActions
 		        reason = "You must specify a direction when using a fishing rod";
 		        return false;
 	        }
-	        if (!Main.Bot._farmer.Items.Any(item => item is FishingRod))
+	        if (!BotHandler.Farmer.Items.Any(item => item is FishingRod))
 	        {
 		        reason = "You do not have a fishing rod in your inventory, you can buy one from the beach.";
 		        return false;
 	        }
 
-	        if (!Main.Bot._currentLocation.canFishHere())
+	        if (!BotHandler.CurrentLocation.canFishHere())
 	        {
 		        reason = "You cannot fish in this location.";
 		        return false;
@@ -221,11 +221,11 @@ public static class ToolActions
 		        power = Math.Clamp(power, 0, 1);
 	        }
 
-	        int x = Main.Bot._farmer.TilePoint.X;
-	        int y = Main.Bot._farmer.TilePoint.Y;
+	        int x = BotHandler.Farmer.TilePoint.X;
+	        int y = BotHandler.Farmer.TilePoint.Y;
 	        Point startValue;
 	        int indexDirection = UseItem.Directions.ToList().IndexOf(selectedDirection);
-	        int? direction = indexDirection == -1 ? Main.Bot._farmer.FacingDirection : indexDirection;
+	        int? direction = indexDirection == -1 ? BotHandler.Farmer.FacingDirection : indexDirection;
 	        switch (direction)
 	        {
 		        case 0:
@@ -244,7 +244,7 @@ public static class ToolActions
 			        startValue = new Point(x,y);
 			        break;
 	        }
-	        if (!Main.Bot._currentLocation.isTileFishable(startValue.X,startValue.Y))
+	        if (!BotHandler.CurrentLocation.isTileFishable(startValue.X,startValue.Y))
 	        {
 		        reason = $"You cannot fish at the provided tile.";
 		        return false;
@@ -257,9 +257,9 @@ public static class ToolActions
 	    
 	    public static void FishingExecute(float power)
 	    {
-		    if (Main.Bot._farmer.CurrentItem is not FishingRod) return;
+		    if (BotHandler.Farmer.CurrentItem is not FishingRod) return;
 
-		    Main.Bot.FishingBar.Fish(power);
+		    BotHandler.Bot.FishingBar.Fish(power);
 	    }
     }
     
@@ -282,7 +282,7 @@ public static class ToolActions
 			try
 			{
 				var refillWatch = Stopwatch.StartNew();
-				await Main.Bot.Tool.RefillWateringCan();
+				await BotHandler.Bot.Tool.RefillWateringCan();
 				refillWatch.Stop();
 				var taskWatch = Stopwatch.StartNew();
 				await TaskDispatcher.SwitchToMainThread();
@@ -357,7 +357,7 @@ public static class ToolActions
 			}
 			Rectangle rect = new(resultData[0], resultData[1], resultData[2] - resultData[0],
 				(resultData[3] - resultData[1]) + 64); // add extra tile to get what is expected
-			Main.Bot.Tool.WaterSelectPatches(rect);
+			BotHandler.Bot.Tool.WaterSelectPatches(rect);
 			RegisterMainActions.RegisterPostAction();
 		}
 	}
@@ -392,7 +392,7 @@ public static class ToolActions
 				return ExecutionResult.Failure($"The radius you provided was not in the range of {MinRange}-{MaxRange}.");
 			}
 
-			var tile = Main.Bot.Player.BotTilePosition();
+			var tile = BotHandler.Bot.Player.BotTilePosition();
 			if (tile.X - radius < 0 || tile.Y - radius < 0 || tile.X + radius > TileUtilities.MaxX || tile.Y + radius > TileUtilities.MaxY)
 			{
 				return ExecutionResult.Failure($"If you used this radius it would either contain a value less than or greater than the size of the map.");
@@ -405,9 +405,9 @@ public static class ToolActions
 		protected override void Execute(int resultData)
 		{
 			int pixelRadius = resultData * 64;
-			Point start = Main.Bot.Player.BotTilePosition();
+			Point start = BotHandler.Bot.Player.BotTilePosition();
 			Rectangle rect = new(start.X - pixelRadius, start.Y - pixelRadius, pixelRadius * 2, pixelRadius * 2);
-			Main.Bot.Tool.WaterSelectPatches(rect);
+			BotHandler.Bot.Tool.WaterSelectPatches(rect);
 			RegisterMainActions.RegisterPostAction();
 		}
 	}
@@ -467,7 +467,7 @@ public static class ToolActions
 
 		protected override void Execute(Point resultData)
 		{
-			Main.Bot.Tool.RemoveObject(resultData);
+			BotHandler.Bot.Tool.RemoveObject(resultData);
 			RegisterMainActions.RegisterPostAction();
 		}
 	}
@@ -487,7 +487,7 @@ public static class ToolActions
 			Required = new List<string> { "tool", "left_x", "top_y", "right_x", "bottom_y" },
 			Properties = new Dictionary<string, JsonSchema>
 			{
-				["tool"] = QJS.Enum(Main.Bot.Inventory.Inventory.Where(item => item is Tool).Select(tool => tool.DisplayName)
+				["tool"] = QJS.Enum(BotHandler.Bot.Inventory.Inventory.Where(item => item is Tool).Select(tool => tool.DisplayName)
 					.ToList()),
 				["left_x"] = QJS.Type(JsonSchemaType.Integer),
 				["top_y"] = QJS.Type(JsonSchemaType.Integer),
@@ -509,7 +509,7 @@ public static class ToolActions
 				return ExecutionResult.Failure("You did not provide a correct schema");
 			}
 
-			List<Item> items = Main.Bot.Inventory.Inventory.Where(item1 => item1 is Tool tool && tool.DisplayName == toolName).ToList();
+			List<Item> items = BotHandler.Bot.Inventory.Inventory.Where(item1 => item1 is Tool tool && tool.DisplayName == toolName).ToList();
 			if (items.Count < 1)
 			{
 				return ExecutionResult.Failure($"The value you provided as the tool name does not exist.");
@@ -564,7 +564,7 @@ public static class ToolActions
 			Required = new List<string> { "tool", "radius" },
 			Properties = new Dictionary<string, JsonSchema>
 			{
-				["tool"] = QJS.Enum(Main.Bot.Inventory.Inventory.Where(item => item is Tool).Select(tool => tool.DisplayName)
+				["tool"] = QJS.Enum(BotHandler.Bot.Inventory.Inventory.Where(item => item is Tool).Select(tool => tool.DisplayName)
 					.ToList()),
 				["radius"] = QJS.Type(JsonSchemaType.Integer)
 			}
@@ -580,7 +580,7 @@ public static class ToolActions
 				return ExecutionResult.Failure("You did not provide a correct schema");
 			}
 
-			List<Item> items = Main.Bot.Inventory.Inventory.Where(item1 => item1 is Tool tool && tool.DisplayName == toolName).ToList();
+			List<Item> items = BotHandler.Bot.Inventory.Inventory.Where(item1 => item1 is Tool tool && tool.DisplayName == toolName).ToList();
 			if (items.Count < 1)
 			{
 				return ExecutionResult.Failure($"The value you provided as the tool name does not exist.");
@@ -605,7 +605,7 @@ public static class ToolActions
 		{
 			try
 			{
-				var point = Main.Bot._farmer.Position;
+				var point = BotHandler.Farmer.Position;
 				int range = resultData.Value * 64;
 				Rectangle rect = new((int)point.X - range, (int)point.Y - range, range * 2, range * 2);
 			
@@ -627,23 +627,23 @@ public static class ToolActions
 		switch (tool)
 		{
 			case Hoe:
-				var tiles = Main.Bot.Tool.CreateFarmLandTiles(rect);
+				var tiles = BotHandler.Bot.Tool.CreateFarmLandTiles(rect);
 				Logger.Info($"tiles: {tiles.Count}");
-				Main.Bot.Tool.HoeFarmLand(tiles.Select(ITile (tile) => tile).ToList());
-				// await Main.Bot.Tool.MakeFarmLand(tiles);
+				BotHandler.Bot.Tool.HoeFarmLand(tiles.Select(ITile (tile) => tile).ToList());
+				// await BotHandler.Bot.Tool.MakeFarmLand(tiles);
 				break;
 			case WateringCan:
-				await Main.Bot.Tool.WaterSelectPatches(rect);
+				await BotHandler.Bot.Tool.WaterSelectPatches(rect);
 				break;
 			default:
-				List<GroundTile> groundTiles = Main.Bot.Tool.RemoveObjectsInDimension(rect);
-				Main.Bot.Tool.RemoveObjects(new List<ITile>(groundTiles));
+				List<GroundTile> groundTiles = BotHandler.Bot.Tool.RemoveObjectsInDimension(rect);
+				BotHandler.Bot.Tool.RemoveObjects(new List<ITile>(groundTiles));
 				break;
 		}
 
 		await Task.Run(() =>
 		{
-			while (Main.Bot.Tool.Running)
+			while (BotHandler.Bot.Tool.Running)
 			{
 			}
 

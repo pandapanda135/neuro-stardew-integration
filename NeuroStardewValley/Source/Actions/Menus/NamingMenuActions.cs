@@ -14,8 +14,8 @@ public static class NamingMenuActions
 		public override string Name => "change_text";
 
 		protected override string Description => $"Set the text for this, you can use a maximum of " +
-		                                         $"{Main.Bot.NamingMenu.Menu.textBox.textLimit} characters with a " +
-		                                         $"minimum of {Main.Bot.NamingMenu.Menu.minLength} character";
+		                                         $"{BotHandler.Bot.NamingMenu.Menu.textBox.textLimit} characters with a " +
+		                                         $"minimum of {BotHandler.Bot.NamingMenu.Menu.minLength} character";
 		protected override JsonSchema Schema => new()
 		{
 			Type = JsonSchemaType.Object,
@@ -35,13 +35,13 @@ public static class NamingMenuActions
 				return ExecutionResult.Failure($"You provided a null value to a string.");
 			}
 
-			if (name.Length > Main.Bot.NamingMenu.Menu.textBox.textLimit ||
-			    name.Length <= Main.Bot.NamingMenu.Menu.minLength)
+			if (name.Length > BotHandler.Bot.NamingMenu.Menu.textBox.textLimit ||
+			    name.Length <= BotHandler.Bot.NamingMenu.Menu.minLength)
 			{
 				return ExecutionResult.Failure(
 					$"The text you added did not adhere to the text box's limit, you can only type a max of" +
-					$" {Main.Bot.NamingMenu.Menu.textBox.textLimit} character and a minimum of" +
-					$" {Main.Bot.NamingMenu.Menu.minLength} character.");
+					$" {BotHandler.Bot.NamingMenu.Menu.textBox.textLimit} character and a minimum of" +
+					$" {BotHandler.Bot.NamingMenu.Menu.minLength} character.");
 			}
 
 			resultData = name;
@@ -51,8 +51,8 @@ public static class NamingMenuActions
 		protected override void Execute(string? resultData)
 		{
 			if (resultData is null) return;
-			Main.Bot.NamingMenu.ChangeName(resultData);
-			Main.Bot.NamingMenu.DoneNaming();
+			BotHandler.Bot.NamingMenu.ChangeName(resultData);
+			BotHandler.Bot.NamingMenu.DoneNaming();
 		}
 	}
 	private class RandomName : NeuroAction
@@ -67,7 +67,7 @@ public static class NamingMenuActions
 
 		protected override void Execute()
 		{
-			Main.Bot.NamingMenu.RandomizeName();
+			BotHandler.Bot.NamingMenu.RandomizeName();
 			RegisterActions();
 		}
 	}
@@ -77,15 +77,15 @@ public static class NamingMenuActions
 		ActionWindow window = ActionWindow.Create(Main.GameInstance);
 
 		window.AddAction(new SetText());
-		if (Main.Bot.NamingMenu.Menu.randomButton.visible) window.AddAction(new RandomName());
+		if (BotHandler.Bot.NamingMenu.Menu.randomButton.visible) window.AddAction(new RandomName());
 
-		string state = $"{Main.Bot.NamingMenu.Menu.title}";
+		string state = $"{BotHandler.Bot.NamingMenu.Menu.title}";
 		
-		if (Main.Bot.NamingMenu.Menu is TitleTextInputMenu textInputMenu) state = $"{textInputMenu.title}";
+		if (BotHandler.Bot.NamingMenu.Menu is TitleTextInputMenu textInputMenu) state = $"{textInputMenu.title}";
 
-		if (Main.Bot.NamingMenu.Menu.textBox.Text != "") state += $" The current text is {Main.Bot.NamingMenu.Menu.textBox.Text}";
+		if (BotHandler.Bot.NamingMenu.Menu.textBox.Text != "") state += $" The current text is {BotHandler.Bot.NamingMenu.Menu.textBox.Text}";
 		window.SetForce(0, $"You are now interacting with a menu that has the title " +
-		                   $"\"{Main.Bot.NamingMenu.Menu.title}\", you should enter text to fit this.", state);
+		                   $"\"{BotHandler.Bot.NamingMenu.Menu.title}\", you should enter text to fit this.", state);
 		window.Register();
 	}
 }

@@ -1,5 +1,6 @@
 ﻿using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Input;
+using NeuroStardewValley.Source;
 using StardewBotFramework.Source;
 using StardewModdingAPI;
 using StardewModdingAPI.Events;
@@ -23,15 +24,12 @@ internal sealed class Main : Mod
     /// </summary>
     public static Game GameInstance => GameRunner.instance;
     
-    public static StardewClient Bot = null!;
-
     public static ModConfig Config = null!;
-    
     public override void Entry(IModHelper helper)
     {
         TaskDispatcher.Initialize();
         Logger.SetMonitor(Monitor);
-        Bot = new StardewClient(helper, ModManifest, Monitor, helper.Multiplayer);
+        BotHandler.Bot = new StardewClient(helper, ModManifest, Monitor, helper.Multiplayer);
 
         try
         {
@@ -47,27 +45,27 @@ internal sealed class Main : Mod
 
         helper.Events.GameLoop.GameLaunched += GameLaunched;
         helper.Events.GameLoop.UpdateTicking += Update;
-        Bot.GameEvents.DayStarted += MainGameLoopEvents.OnDayStarted;
-        Bot.GameEvents.DayEnded += MainGameLoopEvents.OnDayEnded;
-        Bot.GameEvents.BotWarped += MainGameLoopEvents.OnWarped;
-        Bot.GameEvents.MenuChanged += MainGameLoopEvents.OnMenuChanged;
-        Bot.GameEvents.BotLocationNpcChanged += MainGameLoopEvents.LocationNpcChanged;
-        Bot.GameEvents.OnBotDamaged += MainGameLoopEvents.OnBotDamaged;
-        Bot.GameEvents.EventFinished += MainGameLoopEvents.EventFinished;
+        BotHandler.Bot.GameEvents.DayStarted += MainGameLoopEvents.OnDayStarted;
+        BotHandler.Bot.GameEvents.DayEnded += MainGameLoopEvents.OnDayEnded;
+        BotHandler.Bot.GameEvents.BotWarped += MainGameLoopEvents.OnWarped;
+        BotHandler.Bot.GameEvents.MenuChanged += MainGameLoopEvents.OnMenuChanged;
+        BotHandler.Bot.GameEvents.BotLocationNpcChanged += MainGameLoopEvents.LocationNpcChanged;
+        BotHandler.Bot.GameEvents.OnBotDamaged += MainGameLoopEvents.OnBotDamaged;
+        BotHandler.Bot.GameEvents.EventFinished += MainGameLoopEvents.EventFinished;
 
         helper.Events.GameLoop.SaveLoaded += OneTimeEvents.OnSaveLoaded;
 
-        Bot.GameEvents.ChatMessageReceived += LessImportantEvents.OnChatMessage;
-        Bot.GameEvents.UiTimeChanged += LessImportantEvents.OnUiTimeChanged;
-        Bot.GameEvents.HUDMessageAdded += OneTimeEvents.OnHUDMessageAdded;
-        Bot.GameEvents.OnBotDeath += LessImportantEvents.OnBotDeath;
-        Bot.GameEvents.BotInventoryChanged += LessImportantEvents.InventoryChanged;
-        Bot.GameEvents.CaughtFish += LessImportantEvents.CaughtFish;
+        BotHandler.Bot.GameEvents.ChatMessageReceived += LessImportantEvents.OnChatMessage;
+        BotHandler.Bot.GameEvents.UiTimeChanged += LessImportantEvents.OnUiTimeChanged;
+        BotHandler.Bot.GameEvents.HUDMessageAdded += OneTimeEvents.OnHUDMessageAdded;
+        BotHandler.Bot.GameEvents.OnBotDeath += LessImportantEvents.OnBotDeath;
+        BotHandler.Bot.GameEvents.BotInventoryChanged += LessImportantEvents.InventoryChanged;
+        BotHandler.Bot.GameEvents.CaughtFish += LessImportantEvents.CaughtFish;
 
-        Bot.GameEvents.BotObjectChanged += WorldEvents.WorldObjectChanged;
-        Bot.GameEvents.BotTerrainFeatureChanged += WorldEvents.TerrainFeatureChanged;
-        Bot.GameEvents.BotLargeTerrainFeatureChanged += WorldEvents.LargeTerrainFeatureChanged;
-        Bot.GameEvents.BotLocationFurnitureChanged += WorldEvents.LocationFurnitureChanged;
+        BotHandler.Bot.GameEvents.BotObjectChanged += WorldEvents.WorldObjectChanged;
+        BotHandler.Bot.GameEvents.BotTerrainFeatureChanged += WorldEvents.TerrainFeatureChanged;
+        BotHandler.Bot.GameEvents.BotLargeTerrainFeatureChanged += WorldEvents.LargeTerrainFeatureChanged;
+        BotHandler.Bot.GameEvents.BotLocationFurnitureChanged += WorldEvents.LocationFurnitureChanged;
         
         CharacterController.FailedPathFinding += OneTimeEvents.FailedCharacterController;
 
@@ -105,7 +103,7 @@ internal sealed class Main : Mod
             case SButton.I:
                 Logger.Info(
                     $"pixel tile: {Game1.currentCursorTile.X * Game1.tileSize}  {Game1.currentCursorTile.Y * Game1.tileSize}");
-                Logger.Warning($"collision map collisions: {CollisionMap.IsCurrentlyBlocked(Bot._currentLocation,(int)Game1.currentCursorTile.X,(int)Game1.currentCursorTile.Y)}");
+                Logger.Warning($"collision map collisions: {CollisionMap.IsCurrentlyBlocked(BotHandler.CurrentLocation,(int)Game1.currentCursorTile.X,(int)Game1.currentCursorTile.Y)}");
                 Logger.Warning($"neighbours: {Graph.AreNeighboursBlocked(Game1.currentCursorTile.ToPoint(),out var directions,4)}     direction: {directions}");
                 break;
             case SButton.Y:
@@ -119,17 +117,17 @@ internal sealed class Main : Mod
                 Game1.player.Position = Game1.currentCursorTile * 64;
                 break;
             case SButton.X:
-                Bot.FishingBar.Fish(100);
+                BotHandler.Bot.FishingBar.Fish(100);
                 break;
             case SButton.H:
                 MouseState mouseState = Game1.input.GetMouseState();
                 Logger.Info($"mouse state: {mouseState}");
                 Logger.Info($"{new Vector2((int)((Utility.ModifyCoordinateFromUIScale(mouseState.X) + Game1.viewport.X) / 64f), (int)((Utility.ModifyCoordinateFromUIScale(mouseState.Y) + Game1.viewport.Y) / 64f))}");
-                foreach (var objects in Bot._currentLocation.overlayObjects)
+                foreach (var objects in BotHandler.CurrentLocation.overlayObjects)
                 {
                     Logger.Info($"overlay: {objects.Value.DisplayName}  {objects.Value.questItem} {objects.Value.questId}");
                 }
-                foreach (var quest in Bot._farmer.questLog)
+                foreach (var quest in BotHandler.Farmer.questLog)
                 {
                     Logger.Info($"quest: {quest.questTitle} {quest.id}");
                 }
@@ -144,30 +142,30 @@ internal sealed class Main : Mod
 
                 break;
             case SButton.K:
-                foreach (var quest in Main.Bot.QuestLog.Quests)
+                foreach (var quest in BotHandler.Bot.QuestLog.Quests)
                 {
-                    Logger.Info($"quest index: {quest.questTitle}   {Main.Bot.QuestLog.Quests.IndexOf(quest)}");	
+                    Logger.Info($"quest index: {quest.questTitle}   {BotHandler.Bot.QuestLog.Quests.IndexOf(quest)}");	
                 }
 
                 break;
             case SButton.U:
-                Logger.Info($"current game location: {Bot._currentLocation.GetType()}");
-                string[] action = ArgUtility.SplitBySpace(Bot._currentLocation.doesTileHaveProperty((int)Game1.currentCursorTile.X, (int)Game1.currentCursorTile.Y, "Action", "Buildings"));
+                Logger.Info($"current game location: {BotHandler.CurrentLocation.GetType()}");
+                string[] action = ArgUtility.SplitBySpace(BotHandler.CurrentLocation.doesTileHaveProperty((int)Game1.currentCursorTile.X, (int)Game1.currentCursorTile.Y, "Action", "Buildings"));
                 Logger.Warning($"is action: {Game1.isActionAtCurrentCursorTile}    action string: {string.Join(" ",action)}");
-                Bot._currentLocation.overlayObjects.TryGetValue(Game1.currentCursorTile,out var overlayObject);
+                BotHandler.CurrentLocation.overlayObjects.TryGetValue(Game1.currentCursorTile,out var overlayObject);
                 if (overlayObject is null) return;
                 Logger.Info($"interacting with item");
-                Bot.ObjectInteraction.InteractWithQuestObject(overlayObject);
+                BotHandler.Bot.ObjectInteraction.InteractWithQuestObject(overlayObject);
                 break;
             case SButton.V:
                 Logger.Info($"update levels");
                 // Bot._farmer.setSkillLevel("Fishing", 10);
-                Bot._farmer.setSkillLevel("Combat", 10);
+                BotHandler.Farmer.setSkillLevel("Combat", 10);
                 // Bot._farmer.setSkillLevel("Farming", 10);
                 break;
             case SButton.O:
 
-                Game1.activeClickableMenu = new CarpenterMenu("Robin", Main.Bot._currentLocation);
+                Game1.activeClickableMenu = new CarpenterMenu("Robin", BotHandler.CurrentLocation);
                 TileUtilities.BuildingContainsTile(Game1.currentCursorTile.ToPoint());
                 return;
         }
@@ -184,7 +182,7 @@ internal sealed class Main : Mod
     {
         TaskDispatcher.RunPending();
         // this is for if neuro has been frozen for too long
-        Vector2 newPos = Bot._farmer.Position;
+        Vector2 newPos = BotHandler.Farmer.Position;
         // this covers most stuff like EventUp and current menu not null. We include waiting time in case Neuro decides to wait for a long time.  
         if (Context.IsPlayerFree && Config.RegisterIfPausedForLong && LessImportantEvents.WaitingTime == -1)
         {
@@ -224,28 +222,28 @@ internal sealed class Main : Mod
             return;
         }
         
-        Bot.MainMenuNavigation.SetTitleMenu((TitleMenu)Game1.activeClickableMenu);
+        BotHandler.Bot.MainMenuNavigation.SetTitleMenu((TitleMenu)Game1.activeClickableMenu);
 
         // load game
         if (!Config.AllowCharacterCreation)
         {
-            Bot.MainMenuNavigation.GotoLoad();
+            BotHandler.Bot.MainMenuNavigation.GotoLoad();
 
             if (TitleMenu.subMenu is LoadGameMenu)
             {
-                Bot.LoadMenu.SetLoadMenu((LoadGameMenu)TitleMenu.subMenu);
-                if (!Bot.LoadMenu.Loading) Bot.LoadMenu.LoadSlot(Config.SaveSlot);
+                BotHandler.Bot.LoadMenu.SetLoadMenu((LoadGameMenu)TitleMenu.subMenu);
+                if (!BotHandler.Bot.LoadMenu.Loading) BotHandler.Bot.LoadMenu.LoadSlot(Config.SaveSlot);
             }
         }
 
         if (TitleMenu.subMenu is not null || _openedCustomizer || !Config.AllowCharacterCreation) return;
         
-        Bot.MainMenuNavigation.GotoCreateNewCharacter();
+        BotHandler.Bot.MainMenuNavigation.GotoCreateNewCharacter();
 
         if (TitleMenu.subMenu is not CharacterCustomization) return;
         
         _openedCustomizer = true;
-        Bot.CharacterCreation.SetCreator((CharacterCustomization)TitleMenu.subMenu);
+        BotHandler.Bot.CharacterCreation.SetCreator((CharacterCustomization)TitleMenu.subMenu);
         MainMenuActions.RegisterAction();
     }
 }

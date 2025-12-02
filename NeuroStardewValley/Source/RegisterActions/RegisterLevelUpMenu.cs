@@ -18,7 +18,7 @@ public static class RegisterLevelUpMenu
 		string skillContext = "The professions you can pick, The first sent profession will always be \"Left\" with the other being \"Right\": ";
 		if (menu.leftProfession is not null || menu.rightProfession is not null)
 		{
-			foreach (var profession in Main.Bot.EndDaySkillMenu.ProfessionsToChoose)
+			foreach (var profession in BotHandler.Bot.EndDaySkillMenu.ProfessionsToChoose)
 			{
 				skillContext += "\n";
 				foreach (string desc in LevelUpMenu.getProfessionDescription(profession))
@@ -35,7 +35,7 @@ public static class RegisterLevelUpMenu
 		}
 		
 		skillContext = "Skills that have been changed this day: ";
-		List<string> info = menu.getExtraInfoForLevel(Main.Bot.EndDaySkillMenu.CurrentSkill, Main.Bot.EndDaySkillMenu.CurrentLevel);
+		List<string> info = menu.getExtraInfoForLevel(BotHandler.Bot.EndDaySkillMenu.CurrentSkill, BotHandler.Bot.EndDaySkillMenu.CurrentLevel);
 		foreach (var str in info)
 		{
 			skillContext += str;
@@ -45,7 +45,7 @@ public static class RegisterLevelUpMenu
 		Task.Run(async () =>
 		{
 			await Util.WaitForSeconds(3);
-			Main.Bot.EndDaySkillMenu.SelectOkButton();
+			BotHandler.Bot.EndDaySkillMenu.SelectOkButton();
 		});
 	}
 }

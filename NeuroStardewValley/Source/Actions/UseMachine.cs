@@ -14,7 +14,7 @@ namespace NeuroStardewValley.Source.Actions;
 
 public class UseMachine : NeuroAction<KeyValuePair<Object,Item>>
 {
-	private readonly List<Object> _objects = Main.Bot._currentLocation.Objects.Values.Where(o =>
+	private readonly List<Object> _objects = BotHandler.CurrentLocation.Objects.Values.Where(o =>
 		o is { } objs && objs.HasContextTag("is_machine") && objs.HasContextTag("machine_input")).ToList();
 	public override string Name => "use_machine";
 	protected override string Description => "Use an item with the specified machine, some machines may need multiple items to work e.g. furnaces need ore and coal.";
@@ -27,7 +27,7 @@ public class UseMachine : NeuroAction<KeyValuePair<Object,Item>>
 		Properties = new Dictionary<string, JsonSchema>
 		{
 			["machine"] = QJS.Enum(_objects.Select(obj => obj.DisplayName)),
-			["item"] = QJS.Enum(Main.Bot.Inventory.Inventory.Where(item => item is not null && IsValidItem(item)).Select(item => item.DisplayName))
+			["item"] = QJS.Enum(BotHandler.Bot.Inventory.Inventory.Where(item => item is not null && IsValidItem(item)).Select(item => item.DisplayName))
 		}
 	};
 	
@@ -43,7 +43,7 @@ public class UseMachine : NeuroAction<KeyValuePair<Object,Item>>
 		}
 
 		Object? obj = null;
-		foreach (var kvp in TileContext.GetObjectsInLocation(Main.Bot._currentLocation))
+		foreach (var kvp in TileContext.GetObjectsInLocation(BotHandler.CurrentLocation))
 		{
 			if (kvp.Value is not Object objs) continue;
 			
@@ -60,13 +60,13 @@ public class UseMachine : NeuroAction<KeyValuePair<Object,Item>>
 		{
 			return ExecutionResult.Failure($"The object you provided is not a valid machine.");
 		}
-		obj = TileUtilities.GetClosestObjectId(obj.ItemId, Main.Bot._farmer.Tile);
+		obj = TileUtilities.GetClosestObjectId(obj.ItemId, BotHandler.Farmer.Tile);
 		if (obj?.GetMachineData() is null)
 		{
 			return ExecutionResult.Failure($"There is no machine of the type you specified around you.");
 		}
 
-		if (!MachineDataUtility.HasAdditionalRequirements(Main.Bot._farmer.Items,
+		if (!MachineDataUtility.HasAdditionalRequirements(BotHandler.Farmer.Items,
 			    obj.GetMachineData().AdditionalConsumedItems, out var requirement))
 		{
 			return ExecutionResult.Failure($"You cannot use this machine due to: {TokenParser.ParseText(requirement.InvalidCountMessage, null, obj.ParseItemCount)}");
@@ -75,8 +75,8 @@ public class UseMachine : NeuroAction<KeyValuePair<Object,Item>>
 		// ugly solution but it works
 		var objHeldObject = obj.heldObject.Value;
 		obj.heldObject.Value = null;
-		var items = Main.Bot.Inventory.Inventory.Where(i => 
-			i is not null && i.DisplayName == itemName && obj.PlaceInMachine(obj.GetMachineData(), i, true, Main.Bot._farmer)).ToList();
+		var items = BotHandler.Bot.Inventory.Inventory.Where(i => 
+			i is not null && i.DisplayName == itemName && obj.PlaceInMachine(obj.GetMachineData(), i, true, BotHandler.Farmer)).ToList();
 		obj.heldObject.Value = objHeldObject;
 		if (!items.Any())
 		{
@@ -93,21 +93,21 @@ public class UseMachine : NeuroAction<KeyValuePair<Object,Item>>
 		{
 			SwapItemHandler.SwapItem(resultData.Value);
 			
-			await Main.Bot.Pathfinding.Goto(new Goal.GetToTile((int)resultData.Key.TileLocation.X, (int)resultData.Key.TileLocation.Y));
+			await BotHandler.Bot.Pathfinding.Goto(new Goal.GetToTile((int)resultData.Key.TileLocation.X, (int)resultData.Key.TileLocation.Y));
 			await TaskDispatcher.SwitchToMainThread();
 
-			if (!Graph.IsInNeighbours(Main.Bot._farmer.TilePoint, resultData.Key.TileLocation.ToPoint(),
+			if (!Graph.IsInNeighbours(BotHandler.Farmer.TilePoint, resultData.Key.TileLocation.ToPoint(),
 				    out var direction, 4)) return;
 			
-			Main.Bot.Player.ChangeFacingDirection(direction);
+			BotHandler.Bot.Player.ChangeFacingDirection(direction);
 			
 			// grab if there is a finished item in the machine
 			if (resultData.Key.heldObject is not null && resultData.Key.heldObject.Value != resultData.Key.lastInputItem.Value)
 			{
-				Main.Bot.ObjectInteraction.InteractWithObject(resultData.Key);
+				BotHandler.Bot.ObjectInteraction.InteractWithObject(resultData.Key);
 			}
 
-			Main.Bot.Player.AddItemToObject(resultData.Key, resultData.Value);
+			BotHandler.Bot.Player.AddItemToObject(resultData.Key, resultData.Value);
 		}
 		catch (Exception e)
 		{
@@ -128,12 +128,12 @@ public class UseMachine : NeuroAction<KeyValuePair<Object,Item>>
 			
 			var heldObjectValue = obj.heldObject.Value;
 			obj.heldObject.Value = null;
-			bool result = obj.PlaceInMachine(obj.GetMachineData(), item, true, Main.Bot._farmer);
+			bool result = obj.PlaceInMachine(obj.GetMachineData(), item, true, BotHandler.Farmer);
 			obj.heldObject.Value = heldObjectValue;
 			if (result) return true;
 
 			// as we have validation that checks if this is valid I'm going to include this in case Neuro has issues with knowing how machines with multiple items work.  
-			if (MachineDataUtility.HasAdditionalRequirements(Main.Bot._farmer.Items,
+			if (MachineDataUtility.HasAdditionalRequirements(BotHandler.Farmer.Items,
 				    obj.GetMachineData().AdditionalConsumedItems, out _))
 			{
 				return true;

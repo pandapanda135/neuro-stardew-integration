@@ -17,7 +17,7 @@ public static class ElevatorMenuActions
 			Required = new List<string> { "button" },
 			Properties = new Dictionary<string, JsonSchema>
 			{
-				["button"] = QJS.Enum(Main.Bot.ElevatorMenu.Menu.elevators.Where(cc => int.Parse(cc.name) != Game1.CurrentMineLevel).Select(cc => cc.name).ToList())
+				["button"] = QJS.Enum(BotHandler.Bot.ElevatorMenu.Menu.elevators.Where(cc => int.Parse(cc.name) != Game1.CurrentMineLevel).Select(cc => cc.name).ToList())
 			}
 		};
 		protected override ExecutionResult Validate(ActionData actionData, out int resultData)
@@ -27,7 +27,7 @@ public static class ElevatorMenuActions
 			resultData = -1;
 			if (buttonName is null) return ExecutionResult.Failure($"You cannot provide a null value.");
 
-			List<string> ccNames = Main.Bot.ElevatorMenu.Menu.elevators
+			List<string> ccNames = BotHandler.Bot.ElevatorMenu.Menu.elevators
 				.Where(cc => int.Parse(cc.name) != Game1.CurrentMineLevel).Select(cc => cc.name).ToList();
 			if (!ccNames.Contains(buttonName))
 			{
@@ -39,15 +39,15 @@ public static class ElevatorMenuActions
 				return ExecutionResult.Failure($"This value cannot be provided as it is the same as your current mine level");
 			}
 
-			resultData = ccNames.IndexOf(buttonName) + Main.Bot.ElevatorMenu.Menu.elevators
+			resultData = ccNames.IndexOf(buttonName) + BotHandler.Bot.ElevatorMenu.Menu.elevators
 				.Count(cc => int.Parse(cc.name) == Game1.CurrentMineLevel); // add amount of non-valid buttons
 			return ExecutionResult.Success($"You selected {buttonName}");
 		}
 
 		protected override void Execute(int resultData)
 		{
-			Main.Bot.ElevatorMenu.SelectButton(resultData);
-			Main.Bot.ElevatorMenu.RemoveMenu();
+			BotHandler.Bot.ElevatorMenu.SelectButton(resultData);
+			BotHandler.Bot.ElevatorMenu.RemoveMenu();
 		}
 	}
 

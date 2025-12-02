@@ -19,7 +19,7 @@ public static class Util
 
 	public static int SortObjectsByDistance(Point tile1, Point tile2)
 	{
-		var farmerTile = Main.Bot._farmer.TilePoint;
+		var farmerTile = BotHandler.Farmer.TilePoint;
 		float distance = Utility.distance(tile1.X, farmerTile.X, tile1.Y, farmerTile.Y);
 		float distance2 = Utility.distance(tile2.X, farmerTile.X, tile2.Y, farmerTile.Y);
 

@@ -14,7 +14,7 @@ public static class PlayerContext
 	public static string GetAllCharactersLevel()
 	{
 		string charString = "";
-		foreach (var social in Main.Bot.PlayerInformation.RelationshipLevel())
+		foreach (var social in BotHandler.Bot.PlayerInformation.RelationshipLevel())
 		{
 			string contextString = $"\n{social.DisplayName}: heart level: {social.HeartLevel}";
 			if (social.IsRoommateForCurrentPlayer()) contextString += $", is your roommate";
@@ -27,7 +27,7 @@ public static class PlayerContext
 
 	public static string GetAllSkillLevel(bool showUi = false)
 	{
-		Dictionary<string,int> skills = Main.Bot.PlayerInformation.SkillLevel(showUi);
+		Dictionary<string,int> skills = BotHandler.Bot.PlayerInformation.SkillLevel(showUi);
 
 		string contextString = "";
 		foreach (var kvp in skills)

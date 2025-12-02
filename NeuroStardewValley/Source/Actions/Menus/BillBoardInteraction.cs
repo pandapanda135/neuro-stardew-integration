@@ -21,14 +21,14 @@ public static class BillBoardInteraction
 
 		protected override void Execute()
 		{
-			Main.Bot.BillBoard.AcceptDailyQuest();
-			Main.Bot.BillBoard.RemoveMenu();
+			BotHandler.Bot.BillBoard.AcceptDailyQuest();
+			BotHandler.Bot.BillBoard.RemoveMenu();
 		}
 	}
 
 	public static void RegisterQuestActions()
 	{
-		Main.Bot.BillBoard.GetDailyQuest(out string title,out string description,out var objective);
+		BotHandler.Bot.BillBoard.GetDailyQuest(out string title,out string description,out var objective);
 		ActionWindow window = ActionWindow.Create(Main.GameInstance);
 		window.AddAction(new AcceptDailyQuest());
 		window.SetForce(0, "You have opened the daily quest billboard.",
@@ -38,7 +38,7 @@ public static class BillBoardInteraction
 
 	public static string GetCalendarContext()
 	{
-		List<string> contextList = Main.Bot.BillBoard.GetCalendar()
+		List<string> contextList = BotHandler.Bot.BillBoard.GetCalendar()
 			.Where(kvp => kvp.Value.Type != Billboard.BillboardEventType.None).Select(kvp =>
 				$"\nDay: {kvp.Key}, event type: {kvp.Value.Type}, event description: {kvp.Value.HoverText}").ToList();
 		

@@ -58,10 +58,10 @@ public class PickupItems : NeuroAction<KeyValuePair<List<Item>,List<int>>>
 			return ExecutionResult.Failure($"There was an issue with parsing the json you provided: {e}");
 		}
 
-		var enumItems = SchemaUtilities.EnumToItem(Main.Bot.Debris.Debris.Select(Item? (debris) =>
+		var enumItems = SchemaUtilities.EnumToItem(BotHandler.Bot.Debris.Debris.Select(Item? (debris) =>
 			debris.item).ToList(), jsons.Select(json => json.Item).ToList(), false, false);
 		resultData = SchemaUtilities.ItemJsonToItem(jsons,
-			Main.Bot.Debris.Debris.Select(Item? (debris) => debris.item).ToList(), enumItems);
+			BotHandler.Bot.Debris.Debris.Select(Item? (debris) => debris.item).ToList(), enumItems);
 		
 		if (resultData.Key.Count != resultData.Value.Count)
 			return ExecutionResult.Failure($"");
@@ -74,7 +74,7 @@ public class PickupItems : NeuroAction<KeyValuePair<List<Item>,List<int>>>
 		try
 		{
 			Dictionary<Item, List<Debris>> nearestDebris = new();
-			foreach (var debris in Main.Bot.Debris.Debris)
+			foreach (var debris in BotHandler.Bot.Debris.Debris)
 			{
 				foreach (var item in resultData.Key)
 				{
@@ -97,23 +97,23 @@ public class PickupItems : NeuroAction<KeyValuePair<List<Item>,List<int>>>
 				Item item = resultData.Key[i];
 				int quantity = resultData.Value[i];
 				int? newAmount = null;
-				List<Item> items = Main.Bot.Inventory.Inventory.Where(it => it is not null && it.ItemId == item.ItemId).ToList();
+				List<Item> items = BotHandler.Bot.Inventory.Inventory.Where(it => it is not null && it.ItemId == item.ItemId).ToList();
 				var startingAmount = items.Aggregate<Item, int?>(null, (current, it) => current + it.Stack);
 				
 				foreach (var debris in nearestDebris[item])
 				{
 					// we check this as we could pick up debris by being in range while walking or just generally
-					if (!Main.Bot.Debris.Debris.Contains(debris) || debris.item.ItemId != item.ItemId) continue;
+					if (!BotHandler.Bot.Debris.Debris.Contains(debris) || debris.item.ItemId != item.ItemId) continue;
 					Logger.Warning($"item {item.DisplayName}   quantity: {quantity}   item stack: {debris.item.Stack}");
 					Logger.Info($"starting amount: {startingAmount}");
 				
-					await Main.Bot.Debris.PickUpDebris(debris);
+					await BotHandler.Bot.Debris.PickUpDebris(debris);
 					// we wait so it has time to move to player and enter the inventory in case the approximate position isn't amazing.
 					await Util.WaitForSeconds(0.5);
 					if (startingAmount is not null || newAmount is not null)
 					{
 						Logger.Info($"quantity is greater");
-						items = Main.Bot.Inventory.Inventory.Where(it => it is not null && it.ItemId == item.ItemId).ToList();
+						items = BotHandler.Bot.Inventory.Inventory.Where(it => it is not null && it.ItemId == item.ItemId).ToList();
 						Logger.Info($"items: {items.Count}");
 						newAmount = items.Aggregate<Item, int?>(null, (current, it) => current + it.Stack);
 					}
@@ -148,7 +148,7 @@ public class PickupItems : NeuroAction<KeyValuePair<List<Item>,List<int>>>
 	{
 		List<object> names = new();
 		
-		foreach (var debris in Main.Bot.Debris.Debris)
+		foreach (var debris in BotHandler.Bot.Debris.Debris)
 		{
 			if (names.Contains(debris.item.DisplayName)) continue;
 			
@@ -160,7 +160,7 @@ public class PickupItems : NeuroAction<KeyValuePair<List<Item>,List<int>>>
 
 	private static int SortDebris(Debris debris1, Debris debris2)
 	{
-		return Util.SortObjectsByDistance(Main.Bot.Debris.DebrisPosition(debris1.Chunks).ToPoint(),
-			Main.Bot.Debris.DebrisPosition(debris2.Chunks).ToPoint());
+		return Util.SortObjectsByDistance(BotHandler.Bot.Debris.DebrisPosition(debris1.Chunks).ToPoint(),
+			BotHandler.Bot.Debris.DebrisPosition(debris2.Chunks).ToPoint());
 	}
 }

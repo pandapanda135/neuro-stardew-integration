@@ -35,7 +35,7 @@ public static class BlacksmithActions
 			
 			int index = int.Parse(stringIndex);
 
-			if (!Utility.IsGeode(Main.Bot.Inventory.Inventory[index]))
+			if (!Utility.IsGeode(BotHandler.Bot.Inventory.Inventory[index]))
 			{
 				return ExecutionResult.Failure($"{index} is not a geode");
 			}
@@ -45,7 +45,7 @@ public static class BlacksmithActions
 				return ExecutionResult.Failure($"You cannot afford to open a geode, you need 25g to open a geode.");
 			}
 			
-			if (Game1.player.freeSpotsInInventory() == 0 && Main.Bot.Inventory.Inventory[index].Stack > 1)
+			if (Game1.player.freeSpotsInInventory() == 0 && BotHandler.Bot.Inventory.Inventory[index].Stack > 1)
 			{
 				return ExecutionResult.Failure($"You do not have enough free space in your inventory, so you cannot open this geode. You should try to free some space.");
 			}
@@ -56,7 +56,7 @@ public static class BlacksmithActions
 
 		protected override void Execute(int resultData)
 		{
-			Main.Bot.Blacksmith.OpenGeode(resultData);
+			BotHandler.Bot.Blacksmith.OpenGeode(resultData);
 			
 			// geode item takes time to be added to menu
 			DelayedAction.functionAfterDelay(() =>
@@ -70,14 +70,14 @@ public static class BlacksmithActions
 		private static string[] GetSchema()
 		{
 			List<string> strings = new();
-			foreach (var item in Main.Bot.Inventory.Inventory)
+			foreach (var item in BotHandler.Bot.Inventory.Inventory)
 			{
 				if (!Utility.IsGeode(item))
 				{
 					continue;
 				}
 				
-				strings.Add(Main.Bot.Inventory.Inventory.IndexOf(item).ToString());
+				strings.Add(BotHandler.Bot.Inventory.Inventory.IndexOf(item).ToString());
 			}
 
 			return strings.ToArray();
@@ -96,7 +96,7 @@ public static class BlacksmithActions
 
 		protected override void Execute()
 		{
-			Main.Bot.Blacksmith.CloseGeodeMenu();
+			BotHandler.Bot.Blacksmith.CloseGeodeMenu();
 		}
 	}
 }

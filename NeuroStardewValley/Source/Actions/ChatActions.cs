@@ -96,7 +96,7 @@ public static class ChatActions
 
             if (resultData.Count <= 1)
             {
-                Main.Bot.Chat.SendPublicMessage(resultData[0]);
+                BotHandler.Bot.Chat.SendPublicMessage(resultData[0]);
                 RegisterMainActions.RegisterPostAction();
                 return;
             }
@@ -104,10 +104,10 @@ public static class ChatActions
             switch (resultData[0])
             {
                 case "Private":
-                    Main.Bot.Chat.SendPrivateMessage(resultData[2],resultData[1]);
+                    BotHandler.Bot.Chat.SendPrivateMessage(resultData[2],resultData[1]);
                     break;
                 case "Public":
-                    Main.Bot.Chat.SendPublicMessage(resultData[1]);
+                    BotHandler.Bot.Chat.SendPublicMessage(resultData[1]);
                     break;
             }
             
@@ -126,7 +126,7 @@ public static class ChatActions
             Properties = new Dictionary<string, JsonSchema>
             {
                 ["emote"] = QJS.Enum(Farmer.EMOTES.Where(emoteType =>
-                    !emoteType.hidden || Main.Bot._farmer.performedEmotes.ContainsKey(emoteType.emoteString))
+                    !emoteType.hidden || BotHandler.Farmer.performedEmotes.ContainsKey(emoteType.emoteString))
                     .Select(emote => emote.displayName))
             }
         };
@@ -153,7 +153,7 @@ public static class ChatActions
         protected override void Execute(string? resultData)
         {
             var emote = Farmer.EMOTES.Where(emote => emote.displayName == resultData).ToArray()[0];
-            Main.Bot.Chat.UseEmote(emote.emoteString);
+            BotHandler.Bot.Chat.UseEmote(emote.emoteString);
             
             DelayedAction.functionAfterDelay(() => RegisterMainActions.RegisterPostAction(), 2000);
         }

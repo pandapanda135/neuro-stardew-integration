@@ -19,18 +19,18 @@ public static class RegisterStoreActions
 		// in case this is somehow null
 		try
 		{
-			Main.Bot.Shop.ListAllItems();
+			BotHandler.Bot.Shop.ListAllItems();
 		}
 		catch (Exception e)
 		{
 			Logger.Error($"Issue with shop {e}");
-			Main.Bot.Shop.RemoveMenu();
+			BotHandler.Bot.Shop.RemoveMenu();
 			RegisterMainActions.RegisterPostAction();
 			return;
 		}
 
 		string itemString = "These are the items in the shop and their sale prices:";
-		List<ISalable> items = Main.Bot.Shop.ListAllItems();
+		List<ISalable> items = BotHandler.Bot.Shop.ListAllItems();
 		if (items.Count < 1)
 		{
 			Game1.activeClickableMenu = null;
@@ -40,7 +40,7 @@ public static class RegisterStoreActions
 		for (int i = 0; i < items.Count - 1; i++)
 		{
 			ISalable itemISalable = items[i];
-			ItemStockInformation stockInformation = Main.Bot.Shop.StockInformation[itemISalable];
+			ItemStockInformation stockInformation = BotHandler.Bot.Shop.StockInformation[itemISalable];
 			itemString += $"\n{i}: {itemISalable.DisplayName}, description: {StringUtilities.FormatItemString(itemISalable.getDescription())} cost: {stockInformation.Price}";
 			Item item = ItemRegistry.Create(itemISalable.QualifiedItemId);
 			if (item is Tool && !string.IsNullOrEmpty(stockInformation.TradeItem))
@@ -50,16 +50,16 @@ public static class RegisterStoreActions
 			}
 		}
 		
-		if (Main.Bot.Shop.Menu.inventory.actualInventory.Any(item =>
-			    item is not null && Main.Bot.Shop.Menu.inventory.highlightMethod(item)))
+		if (BotHandler.Bot.Shop.Menu.inventory.actualInventory.Any(item =>
+			    item is not null && BotHandler.Bot.Shop.Menu.inventory.highlightMethod(item)))
 		{
 			window.AddAction(new ShopActions.SellBackItem());
 		}
 		
 		itemString += "\nThese are the items you can sell to the shop: ";
 		
-		foreach (var item in Main.Bot.Shop.Menu.inventory.actualInventory.Where(item =>
-			         item is not null && Main.Bot.Shop.Menu.inventory.highlightMethod(item)))
+		foreach (var item in BotHandler.Bot.Shop.Menu.inventory.actualInventory.Where(item =>
+			         item is not null && BotHandler.Bot.Shop.Menu.inventory.highlightMethod(item)))
 		{
 				itemString += $"\n{item.DisplayName} sell price: {item.sellToStorePrice()}";
 		}
@@ -80,14 +80,14 @@ public static class RegisterStoreActions
 		if (PlaceBuildingActions.SelectBuilding.GetBuildings(Game1.getFarm(), out _, CarpenterMenu.CarpentryAction.Demolish).Any())
 			window.AddAction(new CarpenterActions.DestroyBuilding());
 		
-		// if (Main.Bot.FarmBuilding.Building.CanBeReskinned())
+		// if (BotHandler.Bot.FarmBuilding.Building.CanBeReskinned())
 		// {
-		// 	Main.Bot.FarmBuilding.SetSkinUi(new BuildingSkinMenu(Main.Bot.FarmBuilding.Building, true));
+		// 	BotHandler.Bot.FarmBuilding.SetSkinUi(new BuildingSkinMenu(BotHandler.Bot.FarmBuilding.Building, true));
 		// 	window.AddAction(new CarpenterActions.ChangeBuildingSkin());	
 		// }
 
 		string state = "These are the possible buildings that you can either build, upgrade or demolish: ";
-		foreach (var entry in Main.Bot.FarmBuilding.CarpenterMenu.Blueprints)
+		foreach (var entry in BotHandler.Bot.FarmBuilding.CarpenterMenu.Blueprints)
 		{
 			state += $"\n-Building name: {entry.DisplayName}\n-- Time to build: {entry.BuildDays} days\n-- Cost to build: {entry.BuildCost}g";
 			if (entry.BuildMaterials is null) continue;
@@ -107,7 +107,7 @@ public static class RegisterStoreActions
 	{
 		ActionWindow window = ActionWindow.Create(Main.GameInstance);
 		List<Item> items = new();
-		foreach (var item in Main.Bot.Inventory.Inventory)
+		foreach (var item in BotHandler.Bot.Inventory.Inventory)
 		{
 			if (!Utility.IsGeode(item))
 			{

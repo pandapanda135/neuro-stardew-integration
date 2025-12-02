@@ -21,7 +21,7 @@ public static class ShippingBinActions
 		ActionWindow window = ActionWindow.Create(Main.GameInstance);
 		window.AddAction(new ExitBin()).AddAction(new SellItems());
 		string state =
-			$"These are the items you can ship: {InventoryContext.GetShippableString(Main.Bot.Inventory.Inventory)}"; 
+			$"These are the items you can ship: {InventoryContext.GetShippableString(BotHandler.Bot.Inventory.Inventory)}"; 
 		if (Game1.getFarm().lastItemShipped is not null)
 		{
 			window.AddAction(new GrabLastInsertedItem());
@@ -41,13 +41,13 @@ public static class ShippingBinActions
 
 		protected override ExecutionResult Validate(ActionData actionData, out ShippingBin resultData)
 		{
-			if (Main.Bot.ShippingBinInteraction.GetShippingBinLocations(Game1.currentLocation).Count == 0)
+			if (BotHandler.Bot.ShippingBinInteraction.GetShippingBinLocations(Game1.currentLocation).Count == 0)
 			{
 				resultData = new ShippingBin();
 				return ExecutionResult.Failure($"There are no shipping bins in this location");
 			}
 
-			List<ShippingBin> bins = Main.Bot.ShippingBinInteraction.GetShippingBinsInLocation(Game1.currentLocation);
+			List<ShippingBin> bins = BotHandler.Bot.ShippingBinInteraction.GetShippingBinsInLocation(Game1.currentLocation);
 			Dictionary<int, Queue<ShippingBin>> dictionary = ClosestShippingBin(Game1.player.TilePoint, bins);
 			int lowestIndex = 0;
 			foreach (var kvp in dictionary)
@@ -68,10 +68,10 @@ public static class ShippingBinActions
 			{
 				if (resultData is null) return;
 		
-				await Main.Bot.Pathfinding.Goto(new Goal.GoalNearby(resultData.tileX.Value, resultData.tileY.Value, 1));
+				await BotHandler.Bot.Pathfinding.Goto(new Goal.GoalNearby(resultData.tileX.Value, resultData.tileY.Value, 1));
 				await TaskDispatcher.SwitchToMainThread();
 				_bin = resultData;
-				Main.Bot.ShippingBinInteraction.OpenBin(_bin);
+				BotHandler.Bot.ShippingBinInteraction.OpenBin(_bin);
 				// if the farmer is not facing will not open so double check
 				await Util.WaitForSeconds(1);
 				if (Game1.activeClickableMenu is not null) return;
@@ -152,9 +152,9 @@ public static class ShippingBinActions
 			
 			foreach (var item in array)
 			{
-				if (item > Main.Bot.Inventory.MaxInventory - 1)
+				if (item > BotHandler.Bot.Inventory.MaxInventory - 1)
 				{
-					return ExecutionResult.Failure($"{item} is a larger index than there are slots in your inventory. You can only go up to {Main.Bot.Inventory.MaxInventory - 1}");
+					return ExecutionResult.Failure($"{item} is a larger index than there are slots in your inventory. You can only go up to {BotHandler.Bot.Inventory.MaxInventory - 1}");
 				}
 				if (item < 0)
 				{
@@ -167,7 +167,7 @@ public static class ShippingBinActions
 			List<Item> items = new();
 			foreach (var index in resultData)
 			{
-				items.Add(Main.Bot.Inventory.Inventory[index]);	
+				items.Add(BotHandler.Bot.Inventory.Inventory[index]);	
 			}
 			return ExecutionResult.Success($"You have sold: {string.Concat(items.Select(item => $"\n{item.stack} {InventoryContext.QualityStrings[item.Quality]} {item.DisplayName}").ToList())}.");
 		}
@@ -178,9 +178,9 @@ public static class ShippingBinActions
 			if (resultData is null) return;
 			foreach (var index in resultData)
 			{
-				items.Add(Main.Bot.Inventory.Inventory[index]);
+				items.Add(BotHandler.Bot.Inventory.Inventory[index]);
 			}
-			Main.Bot.ShippingBinInteraction.ShipMultipleItems(items.ToArray());
+			BotHandler.Bot.ShippingBinInteraction.ShipMultipleItems(items.ToArray());
 			RegisterBinActions();
 		}
 	}
@@ -193,7 +193,7 @@ public static class ShippingBinActions
 		protected override JsonSchema Schema => new();
 		protected override ExecutionResult Validate(ActionData actionData)
 		{
-			Item? lastInsertedItem = Main.Bot.ShippingBinInteraction.GetLastItem(); 
+			Item? lastInsertedItem = BotHandler.Bot.ShippingBinInteraction.GetLastItem(); 
 			if (lastInsertedItem is null)
 			{
 				return ExecutionResult.Failure($"No item has been inserted into the bin yet");
@@ -204,7 +204,7 @@ public static class ShippingBinActions
 
 		protected override void Execute()
 		{
-			Main.Bot.ShippingBinInteraction.GrabLastItem();
+			BotHandler.Bot.ShippingBinInteraction.GrabLastItem();
 			RegisterBinActions();
 		}
 	}
@@ -220,7 +220,7 @@ public static class ShippingBinActions
 		}
 		protected override void Execute()
 		{
-			Main.Bot.ShippingBinInteraction.RemoveMenu();
+			BotHandler.Bot.ShippingBinInteraction.RemoveMenu();
 		}
 	}
 }

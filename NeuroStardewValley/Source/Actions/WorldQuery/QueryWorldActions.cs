@@ -29,7 +29,7 @@ public static class QueryWorldActions
 				["excluded_names"] = new()
 				{
 					Type = JsonSchemaType.Array,
-					Items = new JsonSchema {Enum = TileContext.GetNameAmountInLocation(Main.Bot._currentLocation)
+					Items = new JsonSchema {Enum = TileContext.GetNameAmountInLocation(BotHandler.CurrentLocation)
 						.Select(object (kvp) => kvp.Key).ToList()
 					}
 				}
@@ -46,7 +46,7 @@ public static class QueryWorldActions
 			if (jArray is not null)
 			{
 				names.AddRange(jArray.Select(token => token.Value<string?>()).OfType<string>()
-					.Where(token => TileContext.GetNameAmountInLocation(Main.Bot._currentLocation).ContainsKey(token)));
+					.Where(token => TileContext.GetNameAmountInLocation(BotHandler.CurrentLocation).ContainsKey(token)));
 			}
 			
 			if (radius == int.MaxValue) return ExecutionResult.Failure($"You cannot specify a null radius");
@@ -56,7 +56,7 @@ public static class QueryWorldActions
 				return ExecutionResult.Failure($"The radius you specified does not fall between the min and max radius.");
 			}
 			
-			var tiles = TileContext.GetTilesInLocation(Main.Bot._currentLocation, Main.Bot._farmer.TilePoint,
+			var tiles = TileContext.GetTilesInLocation(BotHandler.CurrentLocation, BotHandler.Farmer.TilePoint,
 				radius);
 			
 			if (tiles.Count < 1) return ExecutionResult.Failure($"There are no objects around you in that radius.");
@@ -68,13 +68,13 @@ public static class QueryWorldActions
 
 		protected override void Execute(int resultData)
 		{
-			string contextString = $"These are the objects in a radius of {resultData} at {Main.Bot._farmer.TilePoint} at {Main.Bot._currentLocation.DisplayName}. Tiles are sent in the format of X,Y";
+			string contextString = $"These are the objects in a radius of {resultData} at {BotHandler.Farmer.TilePoint} at {BotHandler.CurrentLocation.DisplayName}. Tiles are sent in the format of X,Y";
 			
-			var tiles = TileContext.GetObjectsInLocation(Main.Bot._currentLocation, Main.Bot._farmer.TilePoint,
+			var tiles = TileContext.GetObjectsInLocation(BotHandler.CurrentLocation, BotHandler.Farmer.TilePoint,
 				resultData);
 
 			foreach (var name in tiles.Select(kvp =>
-				         TileContext.GetTileContext(Main.Bot._currentLocation, kvp.Key.X, kvp.Key.Y)).OfType<string>())
+				         TileContext.GetTileContext(BotHandler.CurrentLocation, kvp.Key.X, kvp.Key.Y)).OfType<string>())
 			{
 				if (_objectNames is null)
 				{
@@ -106,7 +106,7 @@ public static class QueryWorldActions
 			Required = new List<string> { "object_name","radius" },
 			Properties = new Dictionary<string, JsonSchema>
 			{
-				["object_name"] = QJS.Enum(TileContext.GetNameAmountInLocation(Main.Bot._currentLocation)
+				["object_name"] = QJS.Enum(TileContext.GetNameAmountInLocation(BotHandler.CurrentLocation)
 					.Select(kvp => kvp.Key).ToList()),
 				["radius"] = QJS.Type(JsonSchemaType.Integer),
 			}
@@ -127,13 +127,13 @@ public static class QueryWorldActions
 				return ExecutionResult.Failure($"The radius should only be between {MinRadius} and {MaxRadius}.");
 			}
 
-			if (!TileContext.GetNameAmountInLocation(Main.Bot._currentLocation)
+			if (!TileContext.GetNameAmountInLocation(BotHandler.CurrentLocation)
 				    .Select(kvp => kvp.Key).ToList().Contains(name))
 			{
 				return ExecutionResult.Failure($"The name you specified is not valid.");
 			}
 			
-			if (TileContext.GetSpecifiedObjects(name, Main.Bot._farmer.TilePoint,(int)radius, Main.Bot._currentLocation).Length < 1)
+			if (TileContext.GetSpecifiedObjects(name, BotHandler.Farmer.TilePoint,(int)radius, BotHandler.CurrentLocation).Length < 1)
 				return ExecutionResult.Failure($"There is no {name} in a radius of {radius}, you can try to either increase the radius or try something else.");
 
 			resultData = new(name, (int)radius);
@@ -143,10 +143,10 @@ public static class QueryWorldActions
 		protected override void Execute(KeyValuePair<string, int> resultData)
 		{
 			string contextString = $"These are the {resultData.Key}s in a radius of {resultData.Value} around " +
-			 $"{Main.Bot._farmer.TilePoint} at {Main.Bot._currentLocation.DisplayName}. Tiles are sent in the format of X,Y:";
+			 $"{BotHandler.Farmer.TilePoint} at {BotHandler.CurrentLocation.DisplayName}. Tiles are sent in the format of X,Y:";
 			
-			contextString += TileContext.GetSpecifiedObjects(resultData.Key, Main.Bot._farmer.TilePoint,
-				resultData.Value, Main.Bot._currentLocation);
+			contextString += TileContext.GetSpecifiedObjects(resultData.Key, BotHandler.Farmer.TilePoint,
+				resultData.Value, BotHandler.CurrentLocation);
 			Context.Send(contextString,true);
 			RegisterMainActions.RegisterPostAction();
 		}

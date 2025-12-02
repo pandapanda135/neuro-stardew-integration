@@ -20,13 +20,13 @@ public class GetQuestItem : NeuroAction<Point>
 	{
 		get
 		{
-			var overlayObjects = Main.Bot._currentLocation.overlayObjects.Where(kvp =>
-				kvp.Value.questItem.Value && Main.Bot._farmer.questLog.Any(quest => quest.id == kvp.Value.questId)).ToList();
+			var overlayObjects = BotHandler.CurrentLocation.overlayObjects.Where(kvp =>
+				kvp.Value.questItem.Value && BotHandler.Farmer.questLog.Any(quest => quest.id == kvp.Value.questId)).ToList();
 			
-			if (Main.Bot._currentLocation is not Cabin and not FarmHouse) return overlayObjects;
+			if (BotHandler.CurrentLocation is not Cabin and not FarmHouse) return overlayObjects;
 		
 			List<KeyValuePair<Vector2, Object>> objs = new();
-			foreach (var kvp in Main.Bot._currentLocation.Objects.Pairs)
+			foreach (var kvp in BotHandler.CurrentLocation.Objects.Pairs)
 			{
 				if (kvp.Value is not Chest chest) continue;
 				if (!chest.giftboxIsStarterGift.Value) continue;
@@ -69,7 +69,7 @@ public class GetQuestItem : NeuroAction<Point>
 		}
 		else
 		{
-			var quests = Main.Bot._farmer.questLog.Where(quest => quest.GetName() == itemName).ToList();
+			var quests = BotHandler.Farmer.questLog.Where(quest => quest.GetName() == itemName).ToList();
 			if (!quests.Any())
 			{
 				var titleObject = ObjectFromFakeTitle(itemName);
@@ -91,7 +91,7 @@ public class GetQuestItem : NeuroAction<Point>
 				if (index == -1) return ExecutionResult.Failure($"The quest you provided is not a valid quest");
 			
 				Object obj = ValidObjects[index].Value;
-				if (Main.Bot._farmer.questLog.All(q => q.id.Value != obj.questId.Value))
+				if (BotHandler.Farmer.questLog.All(q => q.id.Value != obj.questId.Value))
 					return ExecutionResult.Failure($"The quest you provided is not valid.");
 			}
 		}
@@ -116,22 +116,22 @@ public class GetQuestItem : NeuroAction<Point>
 			}
 			
 			Point point = obj.TileLocation.ToPoint();
-			await Main.Bot.Pathfinding.Goto(new Goal.GetToTile(point.X, point.Y),true);
+			await BotHandler.Bot.Pathfinding.Goto(new Goal.GetToTile(point.X, point.Y),true);
 			await Util.WaitForSeconds(0.1);
 
-			if (!Graph.IsInNeighbours(Main.Bot._farmer.TilePoint, point, out var direction, 4))
+			if (!Graph.IsInNeighbours(BotHandler.Farmer.TilePoint, point, out var direction, 4))
 			{
 				RegisterMainActions.RegisterPostAction();	
 				return;
 			}
-			Main.Bot.Player.ChangeFacingDirection(direction);
+			BotHandler.Bot.Player.ChangeFacingDirection(direction);
 			await Util.WaitForSeconds(0.5,false);
 
 			// This is here to, hopefully, fix issues with not picking up the object
 			// might cause concurrency issues, couldn't find any rn :)
 			while (CheckIfInLocation(resultData.ToVector2(),out _, obj))
 			{
-				Main.Bot.ObjectInteraction.InteractWithQuestObject(obj);
+				BotHandler.Bot.ObjectInteraction.InteractWithQuestObject(obj);
 				await Util.WaitForSeconds(0.25,false);
 			}
 			await Util.WaitForSeconds(0.5);
@@ -157,8 +157,8 @@ public class GetQuestItem : NeuroAction<Point>
 	/// will just check if there is either an overlay object or object in this location at that tile.</returns>
 	private static bool CheckIfInLocation(Vector2 point, out Object? tileObj, Object? checkObj = null)
 	{
-		bool overlay = Main.Bot._currentLocation.overlayObjects.TryGetValue(point, out var overObj);
-		bool standard = Main.Bot._currentLocation.Objects.TryGetValue(point, out var standardObj);
+		bool overlay = BotHandler.CurrentLocation.overlayObjects.TryGetValue(point, out var overObj);
+		bool standard = BotHandler.CurrentLocation.Objects.TryGetValue(point, out var standardObj);
 		if (checkObj is null)
 		{
 			tileObj = standardObj ?? overObj;
@@ -182,20 +182,20 @@ public class GetQuestItem : NeuroAction<Point>
 	public static async Task<List<string>> GetSchema()
 	{
 		List<string> names = new();
-		Main.Bot.Pathfinding.BuildCollisionMap();
+		BotHandler.Bot.Pathfinding.BuildCollisionMap();
 		foreach (var kvp in ValidObjects)
 		{
 			Point point = kvp.Key.ToPoint();
-			var path = await Main.Bot.Pathfinding.GetPathTo(new Goal.GetToTile(point.X, point.Y), 1000,true,false);
+			var path = await BotHandler.Bot.Pathfinding.GetPathTo(new Goal.GetToTile(point.X, point.Y), 1000,true,false);
 			// check if pathfinding is empty as the farmer is next to the object
-			if (!path.Any() && !Graph.IsInNeighbours(Main.Bot._farmer.TilePoint, point, out _, 4)) continue;
+			if (!path.Any() && !Graph.IsInNeighbours(BotHandler.Farmer.TilePoint, point, out _, 4)) continue;
 			var pathNodes = path.Reverse().ToList();
 			
 			// check if the final node is a neighbour
 			if (path.Any() && !Graph.IsInNeighbours(pathNodes[0].VectorLocation, point, out _, 4)) continue;
 			if (Main.Config.UseQuestTitleInsteadOfItemName)
 			{
-				var quests = Main.Bot._farmer.questLog.Where(quest => quest.id.Value == kvp.Value.questId.Value).ToList();
+				var quests = BotHandler.Farmer.questLog.Where(quest => quest.id.Value == kvp.Value.questId.Value).ToList();
 				if (!quests.Any())
 				{
 					var title = GetFakeQuestTitles(kvp.Value);
