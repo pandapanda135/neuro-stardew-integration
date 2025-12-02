@@ -1,7 +1,7 @@
 using NeuroSDKCsharp.Actions;
 using NeuroSDKCsharp.Json;
 using NeuroSDKCsharp.Websocket;
-using NeuroStardewValley.Source.EventMethods;
+using NeuroStardewValley.Debug;
 using NeuroStardewValley.Source.Utilities;
 using StardewValley;
 using StardewValley.Buildings;
@@ -11,7 +11,7 @@ namespace NeuroStardewValley.Source.Actions.Menus;
 
 public static class BuyAnimalsActions
 {
-	public class SelectAnimal : NeuroAction<ClickableTextureComponent>
+	private class SelectAnimal : NeuroAction<ClickableTextureComponent>
 	{
 		public override string Name => "select_animal";
 		protected override string Description => "Select the animal you want to buy.";
@@ -47,7 +47,7 @@ public static class BuyAnimalsActions
 			}
 
 			resultData = cc;
-			return ExecutionResult.Success();
+			return ExecutionResult.Success($"Selecting {animalString}");
 		}
 
 		protected override void Execute(ClickableTextureComponent? resultData)
@@ -59,7 +59,7 @@ public static class BuyAnimalsActions
 		}
 	}
 
-	public class ExitMenu : NeuroAction
+	private class ExitMenu : NeuroAction
 	{
 		public override string Name => "exit_menu";
 		protected override string Description => "Exit the menu";
@@ -81,7 +81,7 @@ public static class BuyAnimalsActions
 		}
 	}
 
-	public class SelectBuilding : NeuroAction<Building>
+	private class SelectBuilding : NeuroAction<Building>
 	{
 		public override string Name => "select_building";
 		protected override string Description => "Select the building to put this animal in.";
@@ -116,7 +116,7 @@ public static class BuyAnimalsActions
 				return ExecutionResult.Failure(string.Format(ResultStrings.ModVarFailure,"BuildingCheck"));
 			}
 			resultData = building;
-			return ExecutionResult.Success($"You have selected a: {StringUtilities.GetBuildingName(building)}");
+			return ExecutionResult.Success($"You have selected a {StringUtilities.GetBuildingName(building)}");
 		}
 
 		protected override void Execute(Building? resultData)
@@ -126,7 +126,7 @@ public static class BuyAnimalsActions
 			RegisterActions();
 		}
 
-		public IEnumerable<string> GetSchema(out List<Building> buildings)
+		public static IEnumerable<string> GetSchema(out List<Building> buildings)
 		{
 			List<string> builds = new();
 			List<string> usedBuildingTypes = new();
@@ -145,7 +145,8 @@ public static class BuyAnimalsActions
 		}
 	}
 
-	public class NameAnimal : NeuroAction<string>
+	#region Naming
+	private class NameAnimal : NeuroAction<string>
 	{
 		public override string Name => "name_animal";
 		protected override string Description => "Select a name for this animal, you should try to avoid duplicates and long names.";
@@ -187,15 +188,29 @@ public static class BuyAnimalsActions
 			return ExecutionResult.Success();
 		}
 
-		protected override void Execute(string? resultData)
+		protected override async void Execute(string? resultData)
 		{
-			if (string.IsNullOrEmpty(resultData)) return;
-			BotHandler.Bot.AnimalMenu.NameAnimal(resultData);
-			RegisterActions();
+			try
+			{
+				if (string.IsNullOrEmpty(resultData))
+				{
+					RegisterActions();
+					return;
+				}
+				
+				BotHandler.Bot.AnimalMenu.NameAnimal(resultData);
+				await Util.WaitForSeconds(3);
+				BotHandler.Bot.AnimalMenu.ConfirmName();
+			}
+			catch (Exception e)
+			{
+				Logger.Error($"There was an issue in NameAnimal:\n{e}");
+				RegisterActions();
+			}
 		}
 	}
 
-	public class RandomName : NeuroAction
+	private class RandomName : NeuroAction
 	{
 		public override string Name => "randomise_name";
 		protected override string Description => "Randomise the name of this animal, If you do not like the random name" +
@@ -213,7 +228,7 @@ public static class BuyAnimalsActions
 		}
 	}
 
-	public class AcceptName : NeuroAction
+	private class AcceptName : NeuroAction
 	{
 		public override string Name => "accept_name";
 		protected override string Description => "Accept the currently proposed name of the animal";
@@ -228,6 +243,7 @@ public static class BuyAnimalsActions
 			BotHandler.Bot.AnimalMenu.ConfirmName();
 		}
 	}
+	#endregion
 
 	public static void RegisterActions(int waitTime = 0)
 	{
@@ -238,7 +254,7 @@ public static class BuyAnimalsActions
 		{
 			queryString = "You are selecting the building for the animal to be in.";
 			stateString = "None of the buildings in this location are valid.";
-			if (new SelectBuilding().GetSchema(out var buildings).Any())
+			if (SelectBuilding.GetSchema(out var buildings).Any())
 			{
 				string animalAmount = string.Join("\n",StringUtilities.GetAnimalsPerBuilding(buildings,
 					(b, _, _) => $"\n-- Position: {TileUtilities.BuildingTile(b)}"));
@@ -264,22 +280,5 @@ public static class BuyAnimalsActions
 		
 		window.SetForce(waitTime, queryString, stateString);
 		window.Register();
-	}
-
-	private static string FormatBuildingAnimals(Building building)
-	{
-		string animals = $"-{building.tileX.Value},{building.tileY.Value} {StringUtilities.GetBuildingName(building)}:";
-		if (building.GetIndoors().animals.Length == 0)
-		{
-			animals = $"There are no animals in {StringUtilities.GetBuildingName(building)}";
-			return animals;
-		}
-		
-		foreach (var dict in building.GetIndoors().animals)
-		{
-			animals += string.Join("\n--",dict.Select(kvp => kvp.Value.displayType));
-		}
-
-		return animals;
 	}
 }

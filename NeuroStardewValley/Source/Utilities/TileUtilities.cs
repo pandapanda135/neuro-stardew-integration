@@ -3,7 +3,6 @@ using NeuroStardewValley.Source.ContextStrings;
 using StardewBotFramework.Source.Modules.Pathfinding.Base;
 using StardewValley;
 using StardewValley.Buildings;
-using StardewValley.GameData.Buildings;
 using Object = StardewValley.Object;
 
 namespace NeuroStardewValley.Source.Utilities;
