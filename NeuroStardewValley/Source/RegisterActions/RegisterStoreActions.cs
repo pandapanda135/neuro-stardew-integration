@@ -89,13 +89,13 @@ public static class RegisterStoreActions
 		string state = "These are the possible buildings that you can either build, upgrade or demolish: ";
 		foreach (var entry in BotHandler.Bot.FarmBuilding.CarpenterMenu.Blueprints)
 		{
-			state += $"\n-Building name: {entry.DisplayName}\n-- Time to build: {entry.BuildDays} days\n-- Cost to build: {entry.BuildCost}g";
+			state += $"\n#Building name: {entry.DisplayName}\n## Time to build: {entry.BuildDays} days\n## Cost to build: {entry.BuildCost}g";
 			if (entry.BuildMaterials is null) continue;
-			state += $"\n-- Materials to build: ";
+			state += $"\n## Materials to build: ";
 			foreach (var material in entry.BuildMaterials)
 			{
 				Item item = ItemRegistry.Create(material.Id);
-				state += $"\n--- {item.DisplayName} amount: {material.Amount}";
+				state += $"\n### {item.DisplayName} amount: {material.Amount}";
 			}
 		}
 		window.SetForce(0, $"You are now in the carpenter menu", state,true);

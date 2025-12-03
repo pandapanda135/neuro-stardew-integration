@@ -257,7 +257,7 @@ public static class BuyAnimalsActions
 			if (SelectBuilding.GetSchema(out var buildings).Any())
 			{
 				string animalAmount = string.Join("\n",StringUtilities.GetAnimalsPerBuilding(buildings,
-					(b, _, _) => $"\n-- Position: {TileUtilities.BuildingTile(b)}"));
+					(b, _, _) => $"\n## Position: {TileUtilities.BuildingTile(b)}"));
 				stateString = $"These are the other animal in the valid buildings:\n{animalAmount}";
 				window.AddAction(new SelectBuilding());
 			}

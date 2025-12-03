@@ -167,7 +167,7 @@ public static class StringUtilities
 	/// </summary>
 	/// <param name="additionalContextFunc">This is for adding additional context, the parameters are for
 	/// the current building, the amount of each animal and the amount of this type of building. This returns a string that is added on to the existing string.</param>
-	/// <returns>Return building and animals as string for context, this is in the format -{buildingName}\n--{animals}{additionalContextFunc}</returns>
+	/// <returns>Return building and animals as string for context, this is in the format #{buildingName}\n##{animals}{additionalContextFunc}</returns>
 	public static List<string> GetAnimalsPerBuilding(Func<Building,int?,Dictionary<string, int>?,string>? additionalContextFunc = null)
 	{
 		List<string> usedBuildingTypes = new();
@@ -190,7 +190,7 @@ public static class StringUtilities
 		string str;
 		if (!building.GetIndoors().Animals.Any())
 		{
-			str = $"- {StringUtilities.GetBuildingName(building)}{(buildingAmount > 0 ? $" {buildingAmount}" : "")}\n-- Has no animals inside.";
+			str = $"- {GetBuildingName(building)}{(buildingAmount > 0 ? $" {buildingAmount}" : "")}\n## Has no animals inside.";
 			usedBuildingTypes.Add(building.GetIndoors().Name);
 			return str;
 		}
@@ -204,10 +204,10 @@ public static class StringUtilities
 			}
 		}
 
-		str = $"- {StringUtilities.GetBuildingName(building)}{(buildingAmount > 0 ? $" {buildingAmount}" : "")}";
+		str = $"# {GetBuildingName(building)}{(buildingAmount > 0 ? $" {buildingAmount}" : "")}";
 		usedBuildingTypes.Add(building.GetIndoors().Name);
 
-		str = animalAmount.Aggregate(str, (current, kvp) => $"{current}\n-- {kvp.Key} amount: {kvp.Value}");
+		str = animalAmount.Aggregate(str, (current, kvp) => $"{current}\n## {kvp.Key} amount: {kvp.Value}");
 
 		if (additionalContextFunc is not null)
 		{
