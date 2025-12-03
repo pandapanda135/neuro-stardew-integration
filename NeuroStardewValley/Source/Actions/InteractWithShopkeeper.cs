@@ -145,10 +145,17 @@ public static class ShopKeeperActions
 		if (itemAmount < 1) return ExecutionResult.Failure($"You must provide a positive amount of items.");
 			
 		if (shopItem.Price * itemAmount > BotHandler.Bot.PlayerInformation.Money) return ExecutionResult.Failure($"You do not have enough money to buy so many {item.DisplayName}");
-		// TODO: maybe just make this apart of execute so Neuro doesn't have to worry about it
-		if (item.maximumStackSize() < itemAmount) 
-			return ExecutionResult.Failure($"You can only hold {item.maximumStackSize()} {item.DisplayName} at a time," +
-			                               $" if you want to buy multiple you will have to call this action multiple times.");
+		if (item.maximumStackSize() < itemAmount)
+		{
+			int inventorySlotsTaken = itemAmount / item.maximumStackSize();
+
+			if (!InventoryUtils.CanFitAmount(inventorySlotsTaken))
+			{
+				return ExecutionResult.Failure(
+					$"You do not have enough free slots in your inventory to carry {itemAmount} {item.DisplayName}" +
+					$"The maximum stack size of this item is {item.maximumStackSize()}");
+			}
+		}
 		
 		items.Add(item);
 		amount.Add(itemAmount);
@@ -159,7 +166,7 @@ public static class ShopKeeperActions
 	{
 		if (Game1.activeClickableMenu is not ShopMenu shopMenu) return;
 		BotHandler.Bot.Shop.OpenShop(shopMenu);
-			
+		
 		for (int i = 0; i < items.Count; i++)
 		{
 			await BotHandler.Bot.Shop.BuyItem(items[i],amounts[i]);

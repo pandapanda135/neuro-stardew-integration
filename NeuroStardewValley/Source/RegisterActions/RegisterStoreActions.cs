@@ -29,7 +29,8 @@ public static class RegisterStoreActions
 			return;
 		}
 
-		string itemString = "These are the items in the shop and their sale prices:";
+		string itemString = "These are the items in the shop and their sale prices. If an item contains an upgrade item," +
+		                    " you will not be able to buy that item without the required item.";
 		List<ISalable> items = BotHandler.Bot.Shop.ListAllItems();
 		if (items.Count < 1)
 		{
@@ -37,16 +38,20 @@ public static class RegisterStoreActions
 			RegisterMainActions.RegisterPostAction();
 			return;
 		}
+
+		itemString += "\n# Shop Items:";
 		for (int i = 0; i < items.Count - 1; i++)
 		{
 			ISalable itemISalable = items[i];
 			ItemStockInformation stockInformation = BotHandler.Bot.Shop.StockInformation[itemISalable];
-			itemString += $"\n{i}: {itemISalable.DisplayName}, description: {StringUtilities.FormatItemString(itemISalable.getDescription())} cost: {stockInformation.Price}";
-			Item item = ItemRegistry.Create(itemISalable.QualifiedItemId);
-			if (item is Tool && !string.IsNullOrEmpty(stockInformation.TradeItem))
+			itemString += "\n## Item\n";
+			itemString += $"- Name: {itemISalable.DisplayName}\n" +
+			              $"- Description: {StringUtilities.FormatItemString(itemISalable.getDescription())}\n" +
+			              $"- Cost: {stockInformation.Price}\n";
+			if (ItemRegistry.Create(itemISalable.QualifiedItemId) is Tool && !string.IsNullOrEmpty(stockInformation.TradeItem))
 			{
 				Item upgradeItem = ItemRegistry.Create(stockInformation.TradeItem);
-				itemString += $" items needed for upgrade: {upgradeItem.DisplayName} {stockInformation.TradeItemCount}";
+				itemString += $"### Upgrade Item Requirement:\n- Name: {upgradeItem.DisplayName}\n- Amount Needed: {stockInformation.TradeItemCount}";
 			}
 		}
 		
@@ -55,13 +60,16 @@ public static class RegisterStoreActions
 		{
 			window.AddAction(new ShopActions.SellBackItem());
 		}
+
+		List<Item> sellableItems = BotHandler.Bot.Shop.Menu.inventory.actualInventory.Where(item =>
+			item is not null && BotHandler.Bot.Shop.Menu.inventory.highlightMethod(item)).ToList();
+		if (sellableItems.Any()) itemString += "\n## Sellable Items:";
 		
-		itemString += "\nThese are the items you can sell to the shop: ";
-		
-		foreach (var item in BotHandler.Bot.Shop.Menu.inventory.actualInventory.Where(item =>
-			         item is not null && BotHandler.Bot.Shop.Menu.inventory.highlightMethod(item)))
+		foreach (var item in sellableItems)
 		{
-				itemString += $"\n{item.DisplayName} sell price: {item.sellToStorePrice()}";
+			itemString += "\n### Sellable Item:\n";
+			itemString += $"- Name: {item.DisplayName}\n" +
+			              $"- Sell price: {item.sellToStorePrice()}\n";
 		}
 		window.SetForce(0, "You are in a shop's menu, you can either buy or sell back items here", itemString);
 		
@@ -89,9 +97,9 @@ public static class RegisterStoreActions
 		string state = "These are the possible buildings that you can either build, upgrade or demolish: ";
 		foreach (var entry in BotHandler.Bot.FarmBuilding.CarpenterMenu.Blueprints)
 		{
-			state += $"\n#Building name: {entry.DisplayName}\n## Time to build: {entry.BuildDays} days\n## Cost to build: {entry.BuildCost}g";
+			state += $"\n#Building name: {entry.DisplayName}\n## Time to build: {entry.BuildDays} days\n## Cost to build: {entry.BuildCost} gold";
 			if (entry.BuildMaterials is null) continue;
-			state += $"\n## Materials to build: ";
+			state += "\n## Materials to build: ";
 			foreach (var material in entry.BuildMaterials)
 			{
 				Item item = ItemRegistry.Create(material.Id);

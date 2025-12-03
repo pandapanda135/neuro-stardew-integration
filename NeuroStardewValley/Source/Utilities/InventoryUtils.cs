@@ -48,6 +48,7 @@ public static class InventoryUtils
 		}
 	}
 
+	/// <inheritdoc cref="CanFitAmount(int)"/>
 	public static bool CanFitAmount(List<Item> items)
 	{
 		foreach (var item in items)
@@ -67,6 +68,9 @@ public static class InventoryUtils
 		return CanFitAmount(items.Count);
 	}
 
+	/// <summary>
+	/// Check if there are enough free slots to fit this amount of items
+	/// </summary>
 	public static bool CanFitAmount(int count)
 	{
 		if (BotHandler.Bot.Inventory.Inventory.Any(item => item is null))

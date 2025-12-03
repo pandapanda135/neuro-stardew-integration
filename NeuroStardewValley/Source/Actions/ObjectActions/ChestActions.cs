@@ -446,7 +446,7 @@ public static class ChestActions
 
 					for (int i = 0; i < resultData[chest].Count; i++)
 					{
-						// TODO: this does remove the correct amount of the item it just doesn't add it to the inventory. There is a temporary solution but I don't like it.
+						// TODO: this does remove the correct amount of the item it just doesn't add it to the inventory. There is a temporary solution below, I would rather not have it though.
 						BotHandler.Bot.ItemGrabMenu.RemoveItemAmount(resultData[chest][i],_quantities[chest][i].Quantity);
 						var item = resultData[chest][i].getOne();
 						item.Stack = _quantities[chest][i].Quantity;
