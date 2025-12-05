@@ -4,7 +4,6 @@ using NeuroStardewValley.Source;
 using StardewBotFramework.Source;
 using StardewModdingAPI;
 using StardewModdingAPI.Events;
-using NeuroStardewValley.Source.Actions.Menus;
 using NeuroStardewValley.Source.EventMethods;
 using NeuroStardewValley.Source.RegisterActions;
 using NeuroStardewValley.Source.Utilities;
@@ -23,7 +22,6 @@ internal sealed class Main : Mod
     /// This should be used for all ActionWindows
     /// </summary>
     public static Game GameInstance => GameRunner.instance;
-    
     public static ModConfig Config = null!;
     public override void Entry(IModHelper helper)
     {
@@ -71,12 +69,11 @@ internal sealed class Main : Mod
 
         #endregion
 
-        if (Config.Debug)
-        {
-            helper.Events.Display.Rendered += StardewBotFramework.Debug.DebugDraw.RenderMap;
-            helper.Events.Display.Rendered += StardewBotFramework.Debug.DebugDraw.OnRenderPathNode;
-            helper.Events.Input.ButtonPressed += InputOnButtonPressed;
-        }
+        if (!Config.Debug) return;
+        
+        helper.Events.Display.Rendered += StardewBotFramework.Debug.DebugDraw.RenderMap;
+        helper.Events.Display.Rendered += StardewBotFramework.Debug.DebugDraw.OnRenderPathNode;
+        helper.Events.Input.ButtonPressed += InputOnButtonPressed;
     }
     
     private static void GameLaunched(object? sender, GameLaunchedEventArgs e)
@@ -170,12 +167,8 @@ internal sealed class Main : Mod
                 return;
         }
     }
-    
-    private int _mainMenuTimer;
-    private static bool _blockAutomation;
-    
-    private static bool _openedCustomizer;
-    
+
+    public static MainMenuHandler MainMenuAutomation = new();
     private int _registerTimer;
     private Vector2 _lastPlayerPos;
     private void Update(object? sender, UpdateTickingEventArgs e)
@@ -204,46 +197,6 @@ internal sealed class Main : Mod
             RegisterMainActions.RegisterPostAction();
         }
         
-        if (_blockAutomation) return;
-
-        if (Game1.activeClickableMenu is not TitleMenu || Game1.currentGameTime is null)
-        {
-            _mainMenuTimer = 0;
-            return;
-        }
-
-        if (_mainMenuTimer < 5000)
-        {
-            _mainMenuTimer += Game1.currentGameTime.ElapsedGameTime.Milliseconds;
-            if (!Config.MainMenuAutomation.IsDown()) return;
-            
-            Logger.Info($"You have blocked main menu automation");
-            _blockAutomation = true;
-            return;
-        }
-        
-        BotHandler.Bot.MainMenuNavigation.SetTitleMenu((TitleMenu)Game1.activeClickableMenu);
-
-        // load game
-        if (!Config.AllowCharacterCreation)
-        {
-            BotHandler.Bot.MainMenuNavigation.GotoLoad();
-
-            if (TitleMenu.subMenu is LoadGameMenu)
-            {
-                BotHandler.Bot.LoadMenu.SetLoadMenu((LoadGameMenu)TitleMenu.subMenu);
-                if (!BotHandler.Bot.LoadMenu.Loading) BotHandler.Bot.LoadMenu.LoadSlot(Config.SaveSlot);
-            }
-        }
-
-        if (TitleMenu.subMenu is not null || _openedCustomizer || !Config.AllowCharacterCreation) return;
-        
-        BotHandler.Bot.MainMenuNavigation.GotoCreateNewCharacter();
-
-        if (TitleMenu.subMenu is not CharacterCustomization) return;
-        
-        _openedCustomizer = true;
-        BotHandler.Bot.CharacterCreation.SetCreator((CharacterCustomization)TitleMenu.subMenu);
-        MainMenuActions.RegisterAction();
+        MainMenuAutomation.Update();
     }
 }

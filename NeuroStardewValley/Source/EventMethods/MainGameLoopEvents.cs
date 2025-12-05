@@ -221,7 +221,11 @@ public static class MainGameLoopEvents
 				e.NewMenu.exitThisMenu(false);
 				break;
 		}
-		
+
+		if (e.NewMenu is TitleMenu && e.OldMenu is not TitleMenu)
+		{
+			Main.MainMenuAutomation = new();
+		}
 		// ugly but it gets rid of warning and double send at start of game and other double sends
 		if (e.NewMenu is not null || e.OldMenu is MineElevatorMenu || e.OldMenu is TitleMenu || e.OldMenu is LevelUpMenu) return;
 		

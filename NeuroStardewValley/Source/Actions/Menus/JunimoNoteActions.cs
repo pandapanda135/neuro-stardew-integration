@@ -47,7 +47,8 @@ public static class JunimoNoteActions
 
 		protected override void Execute(Bundle? resultData)
 		{
-			BotHandler.Bot.JunimoNote.SelectBundle(BotHandler.Bot.JunimoNote.Bundles.IndexOf(resultData));
+			if (resultData != null)
+				BotHandler.Bot.JunimoNote.SelectBundle(BotHandler.Bot.JunimoNote.Bundles.IndexOf(resultData));
 			RegisterActions();
 		}
 	}
@@ -180,7 +181,7 @@ public static class JunimoNoteActions
 		}
 	}
 
-	private class ExitMenu : NeuroAction
+	public class ExitMenu : NeuroAction
 	{
 		public override string Name => "exit_menu";
 		protected override string Description => "Exit the menu, not the current bundle.";
