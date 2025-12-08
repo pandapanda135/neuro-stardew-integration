@@ -2,6 +2,7 @@ using System.Collections.Concurrent;
 using Microsoft.Xna.Framework;
 using NeuroSDKCsharp.Actions;
 using NeuroSDKCsharp.Json;
+using NeuroSDKCsharp.Messages.Outgoing;
 using NeuroSDKCsharp.Websocket;
 using NeuroStardewValley.Debug;
 using NeuroStardewValley.Source.ContextStrings;
@@ -11,6 +12,7 @@ using StardewBotFramework.Source.Modules.Pathfinding.Algorithms;
 using StardewBotFramework.Source.Modules.Pathfinding.Base;
 using StardewValley;
 using StardewValley.Buildings;
+using StardewValley.Characters;
 using StardewValley.Monsters;
 
 namespace NeuroStardewValley.Source.Actions;
@@ -326,6 +328,7 @@ public static class PathFindingActions
         }
     }
 
+    [Obsolete("This has been replaced with FollowCharacter.")]
     public class InteractCharacter : NeuroAction<KeyValuePair<NPC,bool>>
     {
         public override string Name => "interact_with_character";
@@ -340,7 +343,7 @@ public static class PathFindingActions
             Properties = new Dictionary<string, JsonSchema>
             {
                 ["character"] = QJS.Enum(BotHandler.CurrentLocation.characters.Where(npc => !npc.IsMonster)
-                    .Select(npc => $"{npc.Name}").ToList()),
+                    .Select(npc => $"{npc.displayName}").ToList()),
                 ["interact"] = QJS.Type(JsonSchemaType.Boolean)
             }
         };
@@ -355,13 +358,13 @@ public static class PathFindingActions
                 return ExecutionResult.Failure($"You provided either an empty or null string");
             }
 
-            int index = BotHandler.CurrentLocation.characters.Select(npc => npc.Name).ToList().IndexOf(charName);
-            if (index == -1)
+            NPC? character = BotHandler.CurrentLocation.characters.FirstOrDefault(npc => npc.displayName == charName);
+            if (character is null)
             {
                 return ExecutionResult.Failure($"The value you provided was invalid.");
             }
             
-            resultData = new(BotHandler.CurrentLocation.characters[index],interact.Value);
+            resultData = new(character,interact.Value);
             string resultString = interact.Value
                 ? $"Interacting with {resultData.Key.GetTokenizedDisplayName()}"
                 : $"Walking over to {resultData.Key.GetTokenizedDisplayName()}";
@@ -387,6 +390,137 @@ public static class PathFindingActions
                 await TaskDispatcher.SwitchToMainThread();
                 RegisterMainActions.RegisterPostAction();
             }
+        }
+    }
+
+    public class FollowCharacter : NeuroAction<KeyValuePair<NPC,bool>>
+    {
+        public static bool FollowingCharacter { get; set; }
+
+        public override string Name => "follow_character";
+        protected override string Description => "This will make you follow a character that is in this location." +
+                                                 " If interact is true, instead of following the character, you will walk to the character and try to interact with them.";
+        protected override JsonSchema Schema => new()
+        {
+            Type = JsonSchemaType.Object,
+            Required = new List<string> { "character" },
+            Properties = new Dictionary<string, JsonSchema>
+            {
+                ["character"] = QJS.Enum(BotHandler.CurrentLocation.characters.Where(npc => !npc.IsMonster)
+                    .Select(npc => $"{npc.displayName}")),
+				["interact"] = QJS.Type(JsonSchemaType.Boolean)
+            }
+        };
+        protected override ExecutionResult Validate(ActionData actionData, out KeyValuePair<NPC,bool> resultData)
+        {
+            string? characterName = actionData.Data?.Value<string>("character");
+            bool? interact = actionData.Data?.Value<bool?>("interact");
+
+            resultData = new();
+            if (characterName is null)
+            {
+                return ExecutionResult.Failure($"");
+            }
+
+            var characters = BotHandler.CurrentLocation.characters.Where(npc => !npc.IsMonster).ToList();
+            NPC? character = characters.FirstOrDefault(npc => npc.displayName == characterName);
+            if (character is null)
+            {
+                return ExecutionResult.Failure($"The character you provided is not valid anymore.");
+            }
+
+            if (interact == true && character is not Pet && !character.canTalk() && !character.CanReceiveGifts())
+            {
+                return ExecutionResult.Failure($"You cannot interact with this character");
+            }
+
+            resultData = new(character, interact ?? false);
+            return ExecutionResult.Success($"You are now following {character.displayName}");
+        }
+
+        protected override async void Execute(KeyValuePair<NPC,bool> resultData)
+        {
+            try
+            {
+                await TaskDispatcher.SwitchToMainThread();
+                RegisterMainActions.BlockRegistering = true;
+                BotHandler.Bot.Pathfinding.BuildCollisionMap();
+
+                if (resultData.Value)
+                {
+                    await BotHandler.Bot.Pathfinding.Goto(new Goal.GoalDynamic(resultData.Key, 1), false, false);
+                    await Util.WaitForSeconds(0.5);
+                    if (Graph.IsInNeighbours(BotHandler.Farmer.TilePoint,resultData.Key.TilePoint,out _))
+                    {
+                        BotHandler.Bot.Characters.InteractWithCharacter(resultData.Key);
+                    }
+
+                    await HandleRegister(null, 0.1);
+                    return;
+                }
+                
+                FollowingCharacter = true;
+                ActionWindow.Create(Main.GameInstance).AddAction(new StopFollowing(resultData.Key)).Register();
+                while (FollowingCharacter)
+                {
+                    if (Graph.IsInNeighbours(BotHandler.Farmer.TilePoint, resultData.Key.TilePoint, out _, 4)) continue;
+
+                    if (!BotHandler.CurrentLocation.characters.Contains(resultData.Key))
+                    {
+                        Context.Send($"{resultData.Key.displayName} has exited this location, " +
+                                     $"they are now in {resultData.Key.currentLocation.DisplayName}.");
+                        await HandleRegister(resultData.Key);
+                        return;
+                    }
+                    
+                    await BotHandler.Bot.Pathfinding.Goto(new Goal.GoalDynamic(resultData.Key, 1), false, false);
+                }
+
+                // should be registered if this was cancelled by StopFollowed
+                await HandleRegister(FollowingCharacter ? resultData.Key : null);
+            }
+            catch (Exception e)
+            {
+                await TaskDispatcher.SwitchToMainThread();
+                Logger.Error($"There was an issue in FollowCharacter: {e}");
+                RegisterMainActions.BlockRegistering = false;
+                RegisterMainActions.RegisterPostAction();
+            }
+        }
+
+        private static async Task HandleRegister(NPC? unregister = null, double waitTime = 0.25)
+        {
+            if (unregister is not null) NeuroActionHandler.UnregisterActions(new StopFollowing(unregister));
+            FollowingCharacter = false;
+            await Util.WaitForSeconds(waitTime);
+            RegisterMainActions.BlockRegistering = false;
+            RegisterMainActions.RegisterPostAction();
+        }
+    }
+    
+    private class StopFollowing : NeuroAction
+    {
+        private readonly NPC _characterFollowing;
+        public StopFollowing(NPC characterFollowing)
+        {
+            _characterFollowing = characterFollowing;
+        }
+
+        public override string Name => "stop_following_character";
+
+        protected override string Description =>
+            $"This will allow for you to stop following {_characterFollowing.displayName}, if you are current walking" +
+            $" to that character you will still continue to walk to them until you reach them.";
+        protected override JsonSchema Schema => new();
+        protected override ExecutionResult Validate(ActionData actionData)
+        {
+            return ExecutionResult.Success();
+        }
+
+        protected override void Execute()
+        {
+            // Maybe just do CharacterController force stop moving instead of going through current pathfinding?
+            FollowCharacter.FollowingCharacter = false;
         }
     }
 

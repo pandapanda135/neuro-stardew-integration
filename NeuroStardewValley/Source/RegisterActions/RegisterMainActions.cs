@@ -79,7 +79,7 @@ public static class RegisterMainActions
 		
 		if (BotHandler.CurrentLocation.characters.Any(character => !character.IsMonster))
 		{
-			window.AddAction(new PathFindingActions.InteractCharacter());
+			window.AddAction(new PathFindingActions.FollowCharacter());
 		}
 		
 		if (BotHandler.Farmer.CurrentItem is not null)
