@@ -5,14 +5,14 @@ public static class LetterContext
 {
 	public static string GetFullLetterString()
 	{
-		string letterText = FormatLetterString(string.Concat(Main.Bot.LetterViewer.GetMessage()));
+		string letterText = FormatLetterString(string.Concat(BotHandler.Bot.LetterViewer.GetMessage()));
 		string context = $"This is what the letter says \"{letterText}\"";
-		if (Main.Bot.LetterViewer.recipeLearned != "")
+		if (BotHandler.Bot.LetterViewer.recipeLearned != "")
 		{
-			context += $" You learned a recipe from this letter! It is for: {Main.Bot.LetterViewer.recipeLearned}";
+			context += $" You learned a recipe from this letter! It is for: {BotHandler.Bot.LetterViewer.recipeLearned}";
 		}
 
-		if (Main.Bot.LetterViewer.itemsToGrab is not null && Main.Bot.LetterViewer.itemsToGrab.Value)
+		if (BotHandler.Bot.LetterViewer.itemsToGrab is not null && BotHandler.Bot.LetterViewer.itemsToGrab.Value)
 		{
 			context += $" There are items to grab from this letter.";
 		}
@@ -30,12 +30,12 @@ public static class LetterContext
 			return context;
 		}
 		
-		if (Main.Bot.LetterViewer.recipeLearned != "")
+		if (BotHandler.Bot.LetterViewer.recipeLearned != "")
 		{
-			context += $" You learned a recipe from this letter! It is for: {Main.Bot.LetterViewer.recipeLearned}";
+			context += $" You learned a recipe from this letter! It is for: {BotHandler.Bot.LetterViewer.recipeLearned}";
 		}
 
-		if (Main.Bot.LetterViewer.itemsToGrab is not null && Main.Bot.LetterViewer.itemsToGrab.Value)
+		if (BotHandler.Bot.LetterViewer.itemsToGrab is not null && BotHandler.Bot.LetterViewer.itemsToGrab.Value)
 		{
 			context += $" There are items to grab from this letter.";
 		}

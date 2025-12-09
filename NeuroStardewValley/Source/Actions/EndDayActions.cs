@@ -55,7 +55,7 @@ public static class EndDayActions
 
 		protected override void Execute(bool resultData)
 		{
-			Main.Bot.EndDaySkillMenu.SelectPerk(resultData);
+			BotHandler.Bot.EndDaySkillMenu.SelectPerk(resultData);
 		}
 	}
 }

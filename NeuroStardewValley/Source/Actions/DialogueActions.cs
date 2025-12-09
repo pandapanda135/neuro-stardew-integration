@@ -20,10 +20,10 @@ public static class DialogueActions
 			if (Game1.activeClickableMenu is not DialogueBox dialogueBox || dialogueBox.responses.Length > 0)
 				return ExecutionResult.ModFailure($"There is no dialogue currently, this is most likely an issue with the mod.");
 			
-			if (Main.Bot.Dialogue.CurrentDialogueBox is null) return ExecutionResult.Failure(string.Format(ResultStrings.ModVarFailure,$"Main.Bot.Dialogue.CurrentDialogueBox"));
+			if (BotHandler.Bot.Dialogue.CurrentDialogueBox is null) return ExecutionResult.Failure(string.Format(ResultStrings.ModVarFailure,$"BotHandler.Bot.Dialogue.CurrentDialogueBox"));
 			
-			if (Main.Bot.Dialogue.CurrentDialogueBox.transitioning || Main.Bot.Dialogue.CurrentDialogueBox.safetyTimer > 0
-				|| Main.Bot.Dialogue.CurrentDialogueBox.characterIndexInDialogue < Main.Bot.Dialogue.CurrentDialogueBox.getCurrentString().Length - 1)
+			if (BotHandler.Bot.Dialogue.CurrentDialogueBox.transitioning || BotHandler.Bot.Dialogue.CurrentDialogueBox.safetyTimer > 0
+				|| BotHandler.Bot.Dialogue.CurrentDialogueBox.characterIndexInDialogue < BotHandler.Bot.Dialogue.CurrentDialogueBox.getCurrentString().Length - 1)
 			{
 				return ExecutionResult.Failure($"You have tried to run this action before the dialogue has finished appearing.");
 			}
@@ -33,8 +33,8 @@ public static class DialogueActions
 
 		protected override void Execute()
 		{
-			bool sendAction = Main.Bot.Dialogue.CurrentDialogue?.dialogues.Count > 1 && !Main.Bot.Dialogue.CurrentDialogue.isOnFinalDialogue();
-			Main.Bot.Dialogue.AdvanceDialogBox(out _);
+			bool sendAction = BotHandler.Bot.Dialogue.CurrentDialogue?.dialogues.Count > 1 && !BotHandler.Bot.Dialogue.CurrentDialogue.isOnFinalDialogue();
+			BotHandler.Bot.Dialogue.AdvanceDialogBox(out _);
 			if (sendAction) RegisterDialogueActions.RegisterActions();
 		}
 	}
@@ -49,7 +49,7 @@ public static class DialogueActions
 			Required = new List<string> { "response" },
 			Properties = new Dictionary<string, JsonSchema>
 			{
-				["response"] = QJS.Enum(Enumerable.Range(0, Main.Bot.Dialogue.PossibleResponses().Length))
+				["response"] = QJS.Enum(Enumerable.Range(0, BotHandler.Bot.Dialogue.PossibleResponses().Length))
 			}
 		};
 		protected override ExecutionResult Validate(ActionData actionData, out int resultData)
@@ -62,32 +62,32 @@ public static class DialogueActions
 				return ExecutionResult.Failure($"You gave a null value to response");
 			}
 
-			if (Main.Bot.Dialogue.PossibleResponses().Length < 1)
+			if (BotHandler.Bot.Dialogue.PossibleResponses().Length < 1)
 			{
 				return ExecutionResult.ModFailure($"There are no possible responses as of right now. This is most likely a mod issue");
 			}
 			
-			int possibleResponsesAmount = Main.Bot.Dialogue.PossibleResponses().Length;
+			int possibleResponsesAmount = BotHandler.Bot.Dialogue.PossibleResponses().Length;
 			if (!Enumerable.Range(0, possibleResponsesAmount).ToList().Contains(selectedResponse.Value))
 			{
 				return ExecutionResult.Failure($"You have given a value that is No a valid response index.");
 			}
 			
-			if (Main.Bot.Dialogue.CurrentDialogueBox is null) return ExecutionResult.Failure(string.Format(ResultStrings.ModVarFailure,$"Main.Bot.Dialogue.CurrentDialogueBox"));
+			if (BotHandler.Bot.Dialogue.CurrentDialogueBox is null) return ExecutionResult.Failure(string.Format(ResultStrings.ModVarFailure,$"BotHandler.Bot.Dialogue.CurrentDialogueBox"));
 			
-			if (Main.Bot.Dialogue.CurrentDialogueBox.transitioning || Main.Bot.Dialogue.CurrentDialogueBox.safetyTimer > 0
-				|| Main.Bot.Dialogue.CurrentDialogueBox.characterIndexInDialogue < Main.Bot.Dialogue.CurrentDialogueBox.getCurrentString().Length - 1)
+			if (BotHandler.Bot.Dialogue.CurrentDialogueBox.transitioning || BotHandler.Bot.Dialogue.CurrentDialogueBox.safetyTimer > 0
+				|| BotHandler.Bot.Dialogue.CurrentDialogueBox.characterIndexInDialogue < BotHandler.Bot.Dialogue.CurrentDialogueBox.getCurrentString().Length - 1)
 			{
 				return ExecutionResult.Failure($"You have tried to run this action before the dialogue has finished appearing.");
 			}
 
 			resultData = selectedResponse.Value;
-			return ExecutionResult.Success($"You have replied: {Main.Bot.Dialogue.PossibleResponses()[selectedResponse.Value].responseText}");
+			return ExecutionResult.Success($"You have replied: {BotHandler.Bot.Dialogue.PossibleResponses()[selectedResponse.Value].responseText}");
 		}
 
 		protected override void Execute(int resultData)
 		{
-			Main.Bot.Dialogue.ChooseResponse(Main.Bot.Dialogue.PossibleResponses()[resultData]);
+			BotHandler.Bot.Dialogue.ChooseResponse(BotHandler.Bot.Dialogue.PossibleResponses()[resultData]);
 		}
 	}
 }

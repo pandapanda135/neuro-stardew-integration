@@ -19,8 +19,8 @@ public static class ItemListMenuActions
 
 		protected override void Execute()
 		{
-			Main.Bot.ItemListMenu.ClickOk();
-			Main.Bot.ItemListMenu.RemoveMenu();
+			BotHandler.Bot.ItemListMenu.ClickOk();
+			BotHandler.Bot.ItemListMenu.RemoveMenu();
 		}
 	}
 
@@ -28,7 +28,7 @@ public static class ItemListMenuActions
 	{
 		ActionWindow window = ActionWindow.Create(Main.GameInstance);
 		window.AddAction(new ExitMenu());
-		var items = Main.Bot.ItemListMenu.GetItems().Where(item => item is not null).Select(item => $"\n{item.DisplayName} amount: {item.stack}");
+		var items = BotHandler.Bot.ItemListMenu.GetItems().Where(item => item is not null).Select(item => $"\n{item.DisplayName} amount: {item.stack}");
 		window.SetForce(0, "You are in a menu, that tells you about the items you lost.",
 			$"{string.Concat(items.ToList())}");
 		window.Register();

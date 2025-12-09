@@ -1,4 +1,5 @@
-using NeuroSDKCsharp.Messages.Outgoing;
+using NeuroStardewValley.Debug;
+using NeuroStardewValley.Source.Utilities;
 using StardewValley.Quests;
 
 namespace NeuroStardewValley.Source.ContextStrings;
@@ -33,7 +34,7 @@ public static class QuestContext
 	public static string GetQuestsStrings()
 	{
 		string questString = "These are the current quests that are active.";
-		foreach (var quest in Main.Bot.QuestLog.Quests)
+		foreach (var quest in BotHandler.Bot.QuestLog.Quests)
 		{
 			questString = string.Concat(questString,GetSingleQuest(quest));
 		}
@@ -43,6 +44,93 @@ public static class QuestContext
 	
 	public static string GetQuestTitles()
 	{
-		return Main.Bot.QuestLog.Quests.Aggregate("", (current, quest) => string.Concat(current, $"\n{quest.questTitle}"));
+		return BotHandler.Bot.QuestLog.Quests.Aggregate("", (current, quest) => string.Concat(current, $"\n{quest.questTitle}"));
+	}
+	
+	public static string FormatDailyQuest(string description)
+	{
+		string formattedMessage = description;
+		char lastChar = '#';
+		int spaceRepeat = 0;
+		foreach (var c in formattedMessage) // we do this to remove the large gaps in text
+		{
+			if (c == lastChar && c == ' ')
+			{
+				spaceRepeat++;
+			}
+
+			lastChar = c;
+		}
+
+		string str = "";
+		for (int i = 0; i < spaceRepeat; i++)
+		{
+			str += " ";
+		}
+
+		if (str != "")
+		{
+			formattedMessage = formattedMessage.Replace(str, "");
+		}
+
+		return formattedMessage;
+	}
+
+
+	public static async Task GetQuestsRewards()
+	{
+		if (BotHandler.Bot.QuestLog.Quests.All(quest => !quest.completed.Value)) return;
+		
+		await Util.WaitForSeconds(1);
+		BotHandler.Bot.QuestLog.OpenLog();
+		if (BotHandler.Bot.QuestLog.PageQuests is null || BotHandler.Bot.QuestLog.CurrentPage is null)
+		{
+			BotHandler.Bot.QuestLog.CloseLog();
+			return;
+		}
+		
+		await Util.WaitForSeconds(1);
+		for (int pageI = 0; pageI < BotHandler.Bot.QuestLog.PageQuests.Count; pageI++)
+		{
+			Logger.Info($"page I: {pageI}   current page: {BotHandler.Bot.QuestLog.CurrentPage}");
+			var page = BotHandler.Bot.QuestLog.PageQuests[pageI];
+			for (int i = 0; i < page.Count; i++)
+			{
+				// I feel increasing this will cause issues in the future, but I hope not.
+				i++;
+				if (BotHandler.Bot.QuestLog.InQuestSubMenu) BotHandler.Bot.QuestLog.CloseQuest();
+				
+				Logger.Info($"quest: {page[i].GetName()}  {page[i].GetDescription()}   i: {i}");
+				if (!page[i].ShouldDisplayAsComplete()) continue;
+				// I have not tested this code, hope it works :)
+				if (BotHandler.Bot.QuestLog.CurrentPage != pageI)
+				{
+					if (BotHandler.Bot.QuestLog.CurrentPage > pageI)
+					{
+						for (int left = (int)BotHandler.Bot.QuestLog.CurrentPage - pageI; left > 0; left--)
+						{
+							BotHandler.Bot.QuestLog.BackLeftPage();
+						}
+					}
+					else
+					{
+						for (int right = pageI - (int)BotHandler.Bot.QuestLog.CurrentPage; right > 0; right--)
+						{
+							BotHandler.Bot.QuestLog.ForwardRightPage();
+						}
+					}
+
+					await Util.WaitForSeconds(1);
+				}
+			
+				await Util.WaitForSeconds(0.5);
+				BotHandler.Bot.QuestLog.OpenQuestIndex(i + 1);
+				await Util.WaitForSeconds(0.5);
+				BotHandler.Bot.QuestLog.GetReward();
+			}	
+		}
+
+		await Util.WaitForSeconds(1);
+		BotHandler.Bot.QuestLog.CloseLog();
 	}
 }

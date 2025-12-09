@@ -49,9 +49,9 @@ public static class RegisterDialogueActions
 			DelayedAction.functionAfterDelay(() =>
 			{
 				string query = "You are currently engaging in dialogue.";
-				if (Main.Bot.Dialogue.CurrentDialogueBox?.characterDialogue is not null)
+				if (BotHandler.Bot.Dialogue.CurrentDialogueBox?.characterDialogue is not null)
 				{
-					query += $" With {Main.Bot.Dialogue.CurrentDialogueBox?.characterDialogue.speaker.displayName}";
+					query += $" With {BotHandler.Bot.Dialogue.CurrentDialogueBox?.characterDialogue.speaker.displayName}";
 				}
 				window.SetForce(0, query, $"This is the dialogue: \"{stateString}\"");
 				window.Register();

@@ -19,7 +19,7 @@ public static class ShopActions
 			Required = new List<string> { "item_index" },
 			Properties = new Dictionary<string, JsonSchema>
 			{
-				["item_index"] = QJS.Enum(Enumerable.Range(0,Main.Bot.Shop.ListAllItems().Count)), // get shop menu items
+				["item_index"] = QJS.Enum(Enumerable.Range(0,BotHandler.Bot.Shop.ListAllItems().Count)), // get shop menu items
 				["amount"] = QJS.Type(JsonSchemaType.Integer)
 			}
 		};
@@ -37,13 +37,13 @@ public static class ShopActions
 			int index = (int)itemIndex;
 			int amount = (int)itemAmount;
 
-			if (!Enumerable.Range(0, Main.Bot.Shop.ListAllItems().Count).Contains(index))
+			if (!Enumerable.Range(0, BotHandler.Bot.Shop.ListAllItems().Count).Contains(index))
 			{
 				return ExecutionResult.Failure($"{index} is not a valid index.");
 			}
 
-			ISalable sellItem = Main.Bot.Shop.ListAllItems()[index];
-			Main.Bot.Shop.ForSaleStats(out List<ISalable> _, out var currency);
+			ISalable sellItem = BotHandler.Bot.Shop.ListAllItems()[index];
+			BotHandler.Bot.Shop.ForSaleStats(out List<ISalable> _, out var currency);
 			switch (currency)
 			{
 				case 0:
@@ -79,8 +79,8 @@ public static class ShopActions
 
 		protected override void Execute(KeyValuePair<ISalable,int> resultData)
 		{
-			int index = Main.Bot.Shop.ListAllItems().IndexOf(resultData.Key);
-			Main.Bot.Shop.BuyItem(index,resultData.Value);
+			int index = BotHandler.Bot.Shop.ListAllItems().IndexOf(resultData.Key);
+			BotHandler.Bot.Shop.BuyItem(index,resultData.Value);
 			RegisterStoreActions.RegisterDefaultShop();
 		}
 	}
@@ -96,7 +96,7 @@ public static class ShopActions
 			Required = new List<string> { "item_index" },
 			Properties = new Dictionary<string, JsonSchema>
 			{
-				["item_index"] = QJS.Enum(Main.Bot.Shop.Menu?.inventory.actualInventory.Where(item => item is not null && Main.Bot.Shop.Menu.inventory.highlightMethod(item)).Select(item => Main.Bot.Shop.Menu.inventory.actualInventory.IndexOf(item)) ?? Array.Empty<int>()), // get shop menu items
+				["item_index"] = QJS.Enum(BotHandler.Bot.Shop.Menu?.inventory.actualInventory.Where(item => item is not null && BotHandler.Bot.Shop.Menu.inventory.highlightMethod(item)).Select(item => BotHandler.Bot.Shop.Menu.inventory.actualInventory.IndexOf(item)) ?? Array.Empty<int>()), // get shop menu items
 				["amount"] = QJS.Type(JsonSchemaType.Integer)
 			}
 		};
@@ -106,7 +106,7 @@ public static class ShopActions
 			int? itemAmount = actionData.Data?.Value<int>("amount");
 			
 			resultData = new();
-			if (Main.Bot.Shop.Menu is null) return ExecutionResult.Failure(string.Format(ResultStrings.ModVarFailure,"Main.Bot.Shop.Menu"));
+			if (BotHandler.Bot.Shop.Menu is null) return ExecutionResult.Failure(string.Format(ResultStrings.ModVarFailure,"BotHandler.Bot.Shop.Menu"));
 			if (itemIndex is null || itemAmount is null)
 			{
 				return ExecutionResult.Failure($"A value you provided was null.");
@@ -115,12 +115,12 @@ public static class ShopActions
 			int index = (int)itemIndex;
 			int amount = (int)itemAmount;
 
-			if (Main.Bot.Inventory.Inventory[index] is null)
+			if (BotHandler.Bot.Inventory.Inventory[index] is null)
 			{
 				return ExecutionResult.Failure($"{index} is not a valid index.");
 			}
 
-			Item sellItem = Main.Bot.Inventory.Inventory[index];
+			Item sellItem = BotHandler.Bot.Inventory.Inventory[index];
 			
 			if (sellItem.salePrice() == -1)
 			{
@@ -134,7 +134,7 @@ public static class ShopActions
 
 		protected override void Execute(KeyValuePair<int, int> resultData)
 		{
-			Main.Bot.Shop.SellBackItem(resultData.Key);
+			BotHandler.Bot.Shop.SellBackItem(resultData.Key);
 		}
 	}
 
@@ -150,7 +150,7 @@ public static class ShopActions
 
 		protected override void Execute()
 		{
-			Main.Bot.Shop.RemoveMenu();
+			BotHandler.Bot.Shop.RemoveMenu();
 		}
 	}
 }

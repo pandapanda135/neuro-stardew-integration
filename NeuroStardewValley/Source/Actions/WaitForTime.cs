@@ -60,5 +60,5 @@ public class WaitForTime : NeuroAction<int>
 		LessImportantEvents.WaitingTime = resultData;
 	}
 
-	private static double GetTime() => Main.Bot._currentLocation.IsOutdoors ? Standard : Indoor;
+	private static double GetTime() => BotHandler.CurrentLocation.IsOutdoors ? Standard : Indoor;
 }

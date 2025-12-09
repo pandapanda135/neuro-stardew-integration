@@ -70,7 +70,7 @@ public static class BuildingActions
 			{
 				window.AddAction(new BuildingAction(resultData));
 			}
-			if (resultData.GetIndoors() != null && resultData.OnUseHumanDoor(Main.Bot._farmer))
+			if (resultData.GetIndoors() != null && resultData.OnUseHumanDoor(BotHandler.Farmer))
 			{
 				stateString += $" The building's door being at {resultData.getPointForHumanDoor()}.";
 				window.AddAction(new EnterBuilding(resultData));
@@ -125,11 +125,10 @@ public static class BuildingActions
 			
 			int index = GetBuildingTiles(GetBuildingsActionTiles(new() { _building })).IndexOf(action);
 			BuildingActionTile tile = GetBuildingsActionTiles(new() { _building })[_building][index];
-			
-			if (!Utility.tileWithinRadiusOfPlayer(_building.tileX.Value + tile.Tile.X,
-				    _building.tileY.Value + tile.Tile.Y, 1, Game1.player))
+			Point buildingTile = TileUtilities.BuildingTile(_building);
+			if (!Utility.tileWithinRadiusOfPlayer(buildingTile.X + tile.Tile.X, buildingTile.Y + tile.Tile.Y,1, BotHandler.Farmer))
 			{
-				return ExecutionResult.Failure($"This action is not within radius of you."); // maybe make it so work toward it? maybe add it to schema?
+				return ExecutionResult.Failure($"This action is not within radius of you."); // maybe make it so walk toward it? maybe add it to schema?
 			}
 
 			resultData = new(tile, pathfind.Value);
@@ -143,7 +142,7 @@ public static class BuildingActions
 				if (resultData.Value)
 				{
 					Point pos = resultData.Key.Tile;
-					await Main.Bot.Pathfinding.Goto(new Goal.GetToTile(pos.X, pos.Y));
+					await BotHandler.Bot.Pathfinding.Goto(new Goal.GetToTile(pos.X, pos.Y));
 					await TaskDispatcher.SwitchToMainThread();
 					if (!RangeCheck.InRange(pos)) // in case pathfinding can't get to tile
 					{
@@ -152,7 +151,7 @@ public static class BuildingActions
 						return;
 					}
 				}
-				Main.Bot.Building.DoBuildingAction(_building, resultData.Key.Tile.ToVector2());
+				BotHandler.Bot.Building.DoBuildingAction(_building, resultData.Key.Tile.ToVector2());
 				if (Game1.activeClickableMenu is null)
 				{
 					RegisterMainActions.RegisterPostAction();
@@ -244,7 +243,7 @@ public static class BuildingActions
 			{
 				if (pathfinding)
 				{
-					await Main.Bot.Pathfinding.Goto(new Goal.GetToTile(Pos.X,Pos.Y));
+					await BotHandler.Bot.Pathfinding.Goto(new Goal.GetToTile(Pos.X,Pos.Y));
 					await TaskDispatcher.SwitchToMainThread();
 					if (!RangeCheck.InRange(Pos)) // in case pathfinding can't get to door
 					{
@@ -253,7 +252,7 @@ public static class BuildingActions
 						return;
 					}
 				}
-				Main.Bot.Building.UseHumanDoor(_building);
+				BotHandler.Bot.Building.UseHumanDoor(_building);
 			}
 			catch (Exception e)
 			{

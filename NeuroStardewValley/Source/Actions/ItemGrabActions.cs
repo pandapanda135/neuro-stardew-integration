@@ -27,7 +27,7 @@ public static class ItemGrabActions
 			Properties = new Dictionary<string, JsonSchema>
 			{
 				["item_menu_name"] = QJS.Enum(GetMenuItems()),
-				["inventory_index"] = QJS.Enum(Enumerable.Range(0, Main.Bot.Inventory.MaxInventory))
+				["inventory_index"] = QJS.Enum(Enumerable.Range(0, BotHandler.Bot.Inventory.MaxInventory))
 			}
 		};
 		protected override ExecutionResult Validate(ActionData actionData, out Dictionary<Item,int>? resultData)
@@ -64,7 +64,7 @@ public static class ItemGrabActions
 			if (resultData is null) return;
 			foreach (var kvp in resultData)
 			{
-				Main.Bot.ItemGrabMenu.TakeItem(kvp.Key);
+				BotHandler.Bot.ItemGrabMenu.TakeItem(kvp.Key);
 			}
 		}
 	}
@@ -130,7 +130,7 @@ public static class ItemGrabActions
 		protected override void Execute(int resultData)
 		{
 			Color color = GetColours()[resultData];
-			Main.Bot.ItemGrabMenu.ChangeColour(DiscreteColorPicker.getSelectionFromColor(color));
+			BotHandler.Bot.ItemGrabMenu.ChangeColour(DiscreteColorPicker.getSelectionFromColor(color));
 			ChestActions.RegisterChestActions();
 		}
 
@@ -183,7 +183,7 @@ public static class ItemGrabActions
 		protected override void Execute(Item? resultData)
 		{
 			if (resultData is null) return;
-			Logger.Info($"can add item: {Main.Bot.ItemGrabMenu.AddItem(resultData)}");
+			Logger.Info($"can add item: {BotHandler.Bot.ItemGrabMenu.AddItem(resultData)}");
 		}
 	}
 

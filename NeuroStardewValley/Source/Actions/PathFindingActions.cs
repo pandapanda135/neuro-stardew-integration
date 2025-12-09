@@ -1,6 +1,8 @@
+using System.Collections.Concurrent;
 using Microsoft.Xna.Framework;
 using NeuroSDKCsharp.Actions;
 using NeuroSDKCsharp.Json;
+using NeuroSDKCsharp.Messages.Outgoing;
 using NeuroSDKCsharp.Websocket;
 using NeuroStardewValley.Debug;
 using NeuroStardewValley.Source.ContextStrings;
@@ -10,6 +12,7 @@ using StardewBotFramework.Source.Modules.Pathfinding.Algorithms;
 using StardewBotFramework.Source.Modules.Pathfinding.Base;
 using StardewValley;
 using StardewValley.Buildings;
+using StardewValley.Characters;
 using StardewValley.Monsters;
 
 namespace NeuroStardewValley.Source.Actions;
@@ -64,7 +67,7 @@ public static class PathFindingActions
 
             goal = new Goal.GoalPosition(int.Parse(xStr), int.Parse(yStr));
             AlgorithmBase.IPathing pathing = new AStar.Pathing();
-            if (pathing.FindPath(new PathNode(Main.Bot._farmer.TilePoint.X, Main.Bot._farmer.TilePoint.Y, null),
+            if (pathing.FindPath(new PathNode(BotHandler.Farmer.TilePoint.X, BotHandler.Farmer.TilePoint.Y, null),
                     goal, Game1.currentLocation, 10000,_destructive).Result.Count == 0)
             {
                 return ExecutionResult.Failure("You cannot make it to the provided tile, you should either try to go somewhere else or allow destruction.");
@@ -80,7 +83,7 @@ public static class PathFindingActions
             try
             {
                 if (goal is null) return; // probably fine
-                await Main.Bot.Pathfinding.Goto(goal, _destructive);
+                await BotHandler.Bot.Pathfinding.Goto(goal, _destructive);
                 await TaskDispatcher.SwitchToMainThread();
                 RegisterMainActions.RegisterPostAction();
             }
@@ -97,7 +100,7 @@ public static class PathFindingActions
     public class PathFindToExit : NeuroAction<Goal?>
     {
         private bool _destructive;
-        private GameLocation _oldLocation = Main.Bot._currentLocation;
+        private GameLocation _oldLocation = BotHandler.CurrentLocation;
         public override string Name => "move_to_exit";
         protected override string Description => "This will move the character to the provided tile to go to an exit, " +
                                                  "the provided coordinates are sent as X and Y in that order.";
@@ -107,7 +110,7 @@ public static class PathFindingActions
             Required = new List<string> { "exit" },
             Properties = new Dictionary<string, JsonSchema>
             {
-                ["exit"] = QJS.Enum(TileContext.GetWarpTilesStrings(TileContext.GetWarpTiles(Main.Bot._currentLocation,true))),
+                ["exit"] = QJS.Enum(GetPathfindExits().Result),
                 ["destructive"] = QJS.Type(JsonSchemaType.Boolean)
             }
         };
@@ -120,20 +123,21 @@ public static class PathFindingActions
             Logger.Info($"data: {pointStr}");
             goal = null;
             
-            if (pointStr is null || destructive is null)
+            if (pointStr is null)
             {
                 Logger.Error($"data or yData is null");
                 return ExecutionResult.Failure($"A value you gave was null");
             }
+
+            // I think it is false if not specified but might as well double check
+            destructive ??= false;
             
-            string[] splitName = pointStr.Split(":");
-            string[] coords = splitName[1].Split(',');
+            // this is where we get points from
+            if (!_selectedWarps.TryGetValue(pointStr, out var exitPoint)) return ExecutionResult.Failure($"{pointStr} is not a valid warp.");
 
-            Point exitPoint = new Point(int.Parse(coords[0]), int.Parse(coords[1]));
-
-            if (!TileContext.GetWarpsAsPoint(TileContext.GetWarpTiles(Main.Bot._currentLocation,true)).ContainsKey(exitPoint))
+            if (!TileContext.GetWarpsAsPoint(BotHandler.CurrentLocation,true,true, true).ContainsKey(exitPoint))
             { 
-                return ExecutionResult.Failure($"The provided tile is not an exit");
+                return ExecutionResult.Failure($"The value you provided was not a valid exit.");
             }
 
             if (exitPoint.X > TileUtilities.MaxX || exitPoint.X < -1 || // some exits are at -1
@@ -144,30 +148,37 @@ public static class PathFindingActions
             }
 
             // if exit point is part of building
-            if (Utility.tileWithinRadiusOfPlayer(exitPoint.X, exitPoint.Y, 1, Main.Bot._farmer)
-                && !TileContext.GetWarpsAsPoint(TileContext.GetWarpTiles(Main.Bot._currentLocation))
+            if (Utility.tileWithinRadiusOfPlayer(exitPoint.X, exitPoint.Y, 1, BotHandler.Farmer)
+                && !TileContext.GetWarpsAsPoint(BotHandler.CurrentLocation, false, true)
                     .ContainsKey(exitPoint))
             {
                 goal = new Goal.GoalPosition(exitPoint.X,exitPoint.Y);
                 return ExecutionResult.Success($"Entering {exitPoint}");
             }
             
-            Main.Bot.Pathfinding.BuildCollisionMapInRadius(exitPoint,3);
-            if (Main.Bot.Pathfinding.IsBlocked(exitPoint.X, exitPoint.Y) && (bool)!destructive)
+            BotHandler.Bot.Pathfinding.BuildCollisionMapInRadius(exitPoint,3);
+            if (BotHandler.Bot.Pathfinding.IsBlocked(exitPoint.X, exitPoint.Y) &&
+                // this is here as actionable tiles block something most of the time, may have side effects that I don't know about though.
+                !TileUtilities.Actionable(exitPoint) && (bool)!destructive)
             {
                 return ExecutionResult.Failure("You gave a position that is blocked. Maybe try something else!");
             }
 
             AlgorithmBase.IPathing pathing = new AStar.Pathing();
-            if (pathing.FindPath(new PathNode(Main.Bot._farmer.TilePoint.X, Main.Bot._farmer.TilePoint.Y, null),
-                    new Goal.GoalPosition(exitPoint.X, exitPoint.Y), Game1.currentLocation, 10000,_destructive).Result.Count == 0)
+            Goal testGoal = new Goal.GoalPosition(exitPoint.X, exitPoint.Y);
+            if (TileUtilities.Actionable(exitPoint))
+            {
+                testGoal = new Goal.GetToTile(exitPoint.X, exitPoint.Y);
+            }
+            if (!pathing.FindPath(new PathNode(BotHandler.Farmer.TilePoint.X, BotHandler.Farmer.TilePoint.Y, null),
+                    testGoal, BotHandler.CurrentLocation, 10000,_destructive).Result.Any())
             {
                 return ExecutionResult.Failure("You cannot make it to this exit, you should try something else.");
             }
 
             goal = new Goal.GoalPosition(exitPoint.X,exitPoint.Y);
             _destructive = (bool)destructive;
-            _oldLocation = Main.Bot._currentLocation;
+            _oldLocation = BotHandler.CurrentLocation;
             return ExecutionResult.Success($"Going to {goal.VectorLocation}");
         }
 
@@ -175,58 +186,149 @@ public static class PathFindingActions
         {
             try
             {
-                if (goal is null) return; // probably fine
-                Vector2 vec2 = goal.VectorLocation.ToVector2() * 64;
-                var buildings = Main.Bot._currentLocation.buildings
-                    .Where(building => building.GetBoundingBox().Contains(vec2)).ToList();
-                Building? building = null;
-                if (buildings.Count > 0)
+                await TaskDispatcher.SwitchToMainThread();
+                
+                if (goal is null)
                 {
-                    building = buildings[0];
+                    RegisterMainActions.RegisterPostAction();
+                    return; // probably fine
+                }
+                Building? building = GetSurroundingBuilding(goal.VectorLocation);
+                Logger.Info($"building: {building is null}");
+                if (building is not null)
+                {
                     Point point = building.getPointForHumanDoor();
                     goal = new Goal.GetToTile(point.X, point.Y);
                 }
-            
-                if (!Utility.tileWithinRadiusOfPlayer(goal.X, goal.Y, 1, Main.Bot._farmer))
+                
+                var actions = TileContext.GetActionAndTile();
+                bool actionTile = false;
+                Logger.Info($"{goal.VectorLocation}");
+                actions.TryGetValue(goal.VectorLocation, out var value);
+                if (TileUtilities.Actionable(goal.VectorLocation) || 
+                    TileContext.ActionWarpString(new(goal.VectorLocation, value ?? string.Empty),true) != "")
                 {
-                    await Main.Bot.Pathfinding.Goto(goal, _destructive);
+                    actionTile = true;
+                    goal = new Goal.GetToTile(goal.VectorLocation.X, goal.VectorLocation.Y);
+                }
+                
+                if (!Utility.tileWithinRadiusOfPlayer(goal.X, goal.Y, 1, BotHandler.Farmer))
+                {
+                    await BotHandler.Bot.Pathfinding.Goto(goal, _destructive);
                     await TaskDispatcher.SwitchToMainThread();
 
                     // probably don't need to do lower checks if these are different
-                    if (!Main.Bot._currentLocation.Equals(_oldLocation)) return;
+                    if (!BotHandler.CurrentLocation.Equals(_oldLocation)) return;
                 }
 
                 // pathfinding can't go within 1 tile of current position so we do this.
+                if (building is null && actionTile)
+                {
+                    Logger.Info($"using action tile");
+                    BotHandler.Bot.ActionTiles.DoActionTile(goal.VectorLocation);
+                    return;
+                }
+                
                 if (building is null)
                 {
-                    List<Warp> warps = Main.Bot._currentLocation.warps.Where(warp => warp.X == goal.X && warp.Y == goal.Y)
+                    List<Warp> warps = BotHandler.CurrentLocation.warps.Where(warp => warp.X == goal.X && warp.Y == goal.Y)
                         .ToList();
                     if (!warps.Any()) return;
                     var warp = warps[0];
 
-                    Main.Bot._farmer.warpFarmer(warp);
+                    BotHandler.Farmer.warpFarmer(warp);
                 
                     // warps can take a second to register sometimes
-                    await Task.Delay(3000);
-                    await TaskDispatcher.SwitchToMainThread();
-                    if (Main.Bot._currentLocation.Equals(_oldLocation))
+                    await Util.WaitForSeconds(3);
+                    if (BotHandler.CurrentLocation.Equals(_oldLocation))
                     {
                         RegisterMainActions.RegisterPostAction();
                     }
                     return;
                 }
             
-                Main.Bot.Building.UseHumanDoor(building);
+                Logger.Info($"entering human door");
+                BotHandler.Bot.Building.UseHumanDoor(building);
             }
             catch (Exception e)
             {
                 Logger.Error($"exception in path-find to exit: {e}");
                 await TaskDispatcher.SwitchToMainThread();
-                if (Main.Bot._currentLocation.Equals(_oldLocation)) RegisterMainActions.RegisterPostAction();
+                if (BotHandler.CurrentLocation.Equals(_oldLocation)) RegisterMainActions.RegisterPostAction();
             }
+        }
+
+        private readonly ConcurrentDictionary<string, Point> _selectedWarps = new();
+
+        private async Task<List<string>> GetPathfindExits()
+        {
+            await TaskDispatcher.SwitchToMainThread();
+            var warpsAsPoint = TileContext.GetWarpsAsPoint(BotHandler.CurrentLocation,true,true , true);
+            BotHandler.Bot.Pathfinding.BuildCollisionMap();
+
+            foreach (var warpStr in warpsAsPoint)
+            {
+                Logger.Info($"kvp: {warpStr.Key}   {warpStr.Value}");
+                
+                // we only want to check for duplicates from buildings
+                if (_selectedWarps.ContainsKey(warpStr.Value) && 
+                    !TileContext.GetWarpsAsPoint(BotHandler.CurrentLocation, false, true).ContainsKey(warpStr.Key)) continue;
+
+                var pathNodes = await BotHandler.Bot.Pathfinding.GetPathTo(new Goal.GetToTile(warpStr.Key.X,warpStr.Key.Y), 2500,true,false);
+                Building? building = TileUtilities.BuildingContainsTile(warpStr.Key);
+                if (!pathNodes.Any() && !Graph.IsInNeighbours(BotHandler.Farmer.TilePoint, warpStr.Key, out _, 4) && building is null) continue;
+
+                if (building is not null)
+                {
+                    Logger.Info($"building: {building}");
+                    if (!building.HasIndoors()) continue;
+
+                    string buildingName = StringUtilities.GetBuildingName(building);
+                    AddDuplicateAmount(warpStr.Value, ref buildingName);
+
+                    _selectedWarps.TryAdd(buildingName,warpStr.Key);
+                    continue;
+                }
+                
+                // this is due to building warps and both tile warps handling greenhouse
+                if (warpStr.Value.ToLower() == "greenhouse" && !BotHandler.Farmer.mailReceived.Contains("ccPantry"))
+                {
+                    continue;
+                }
+
+                var location = Game1.getLocationFromName(warpStr.Value);
+                string name = warpStr.Value;
+                // this stops buildings like the greenhouse from adding the current location
+                if (location is not null && location.DisplayName != BotHandler.CurrentLocation.DisplayName)
+                {
+                    name = location.DisplayName;
+                }
+                AddDuplicateAmount(warpStr.Value, ref name);
+
+                _selectedWarps.TryAdd(name, warpStr.Key);
+            }
+
+            return _selectedWarps.Keys.ToList();
+        }
+
+        private void AddDuplicateAmount(string preFormatName, ref string postFormatName)
+        {
+            int amount = _selectedWarps.Keys.Count(preFormatName.Contains);
+            if (amount > 0)
+            {
+                postFormatName = $"{postFormatName}: {amount}";
+            }
+        } 
+
+        private static Building? GetSurroundingBuilding(Point tile)
+        {
+            if (TileUtilities.BuildingContainsTile(tile) is not null) return TileUtilities.BuildingContainsTile(tile);
+            var graph = new Graph();
+            return graph.GroupNeighbours(tile, 4).Select(TileUtilities.BuildingContainsTile).OfType<Building>().FirstOrDefault();
         }
     }
 
+    [Obsolete("This has been replaced with FollowCharacter.")]
     public class InteractCharacter : NeuroAction<KeyValuePair<NPC,bool>>
     {
         public override string Name => "interact_with_character";
@@ -240,8 +342,8 @@ public static class PathFindingActions
             Required = new List<string> { "character","interact" },
             Properties = new Dictionary<string, JsonSchema>
             {
-                ["character"] = QJS.Enum(Main.Bot._currentLocation.characters.Where(npc => !npc.IsMonster)
-                    .Select(npc => $"{npc.Name}").ToList()),
+                ["character"] = QJS.Enum(BotHandler.CurrentLocation.characters.Where(npc => !npc.IsMonster)
+                    .Select(npc => $"{npc.displayName}").ToList()),
                 ["interact"] = QJS.Type(JsonSchemaType.Boolean)
             }
         };
@@ -256,25 +358,29 @@ public static class PathFindingActions
                 return ExecutionResult.Failure($"You provided either an empty or null string");
             }
 
-            int index = Main.Bot._currentLocation.characters.Select(npc => npc.Name).ToList().IndexOf(charName);
-            if (index == -1)
+            NPC? character = BotHandler.CurrentLocation.characters.FirstOrDefault(npc => npc.displayName == charName);
+            if (character is null)
             {
                 return ExecutionResult.Failure($"The value you provided was invalid.");
             }
             
-            resultData = new(Main.Bot._currentLocation.characters[index],interact.Value);
-            return ExecutionResult.Success();
+            resultData = new(character,interact.Value);
+            string resultString = interact.Value
+                ? $"Interacting with {resultData.Key.GetTokenizedDisplayName()}"
+                : $"Walking over to {resultData.Key.GetTokenizedDisplayName()}";
+            return ExecutionResult.Success(resultString);
         }
 
         protected override async void Execute(KeyValuePair<NPC,bool> resultData)
         {
             try
             {
-                await Main.Bot.Pathfinding.Goto(new Goal.GoalDynamic(resultData.Key, 1));
+                await BotHandler.Bot.Pathfinding.Goto(new Goal.GoalDynamic(resultData.Key, 1));
                 await TaskDispatcher.SwitchToMainThread();
-                if (resultData.Value)
+                // we check neighbour to prevent opening dialogue from large distances away
+                if (resultData.Value && Graph.IsInNeighbours(BotHandler.Farmer.TilePoint,resultData.Key.TilePoint,out _))
                 {
-                    Main.Bot.Characters.InteractWithCharacter(resultData.Key);
+                    BotHandler.Bot.Characters.InteractWithCharacter(resultData.Key);
                 }
                 RegisterMainActions.RegisterPostAction(); // this should not run if character starts talking
             }
@@ -284,6 +390,137 @@ public static class PathFindingActions
                 await TaskDispatcher.SwitchToMainThread();
                 RegisterMainActions.RegisterPostAction();
             }
+        }
+    }
+
+    public class FollowCharacter : NeuroAction<KeyValuePair<NPC,bool>>
+    {
+        public static bool FollowingCharacter { get; set; }
+
+        public override string Name => "follow_character";
+        protected override string Description => "This will make you follow a character that is in this location." +
+                                                 " If interact is true, instead of following the character, you will walk to the character and try to interact with them.";
+        protected override JsonSchema Schema => new()
+        {
+            Type = JsonSchemaType.Object,
+            Required = new List<string> { "character" },
+            Properties = new Dictionary<string, JsonSchema>
+            {
+                ["character"] = QJS.Enum(BotHandler.CurrentLocation.characters.Where(npc => !npc.IsMonster)
+                    .Select(npc => $"{npc.displayName}")),
+				["interact"] = QJS.Type(JsonSchemaType.Boolean)
+            }
+        };
+        protected override ExecutionResult Validate(ActionData actionData, out KeyValuePair<NPC,bool> resultData)
+        {
+            string? characterName = actionData.Data?.Value<string>("character");
+            bool? interact = actionData.Data?.Value<bool?>("interact");
+
+            resultData = new();
+            if (characterName is null)
+            {
+                return ExecutionResult.Failure($"");
+            }
+
+            var characters = BotHandler.CurrentLocation.characters.Where(npc => !npc.IsMonster).ToList();
+            NPC? character = characters.FirstOrDefault(npc => npc.displayName == characterName);
+            if (character is null)
+            {
+                return ExecutionResult.Failure($"The character you provided is not valid anymore.");
+            }
+
+            if (interact == true && character is not Pet && !character.canTalk() && !character.CanReceiveGifts())
+            {
+                return ExecutionResult.Failure($"You cannot interact with this character");
+            }
+
+            resultData = new(character, interact ?? false);
+            return ExecutionResult.Success($"You are now following {character.displayName}");
+        }
+
+        protected override async void Execute(KeyValuePair<NPC,bool> resultData)
+        {
+            try
+            {
+                await TaskDispatcher.SwitchToMainThread();
+                RegisterMainActions.BlockRegistering = true;
+                BotHandler.Bot.Pathfinding.BuildCollisionMap();
+
+                if (resultData.Value)
+                {
+                    await BotHandler.Bot.Pathfinding.Goto(new Goal.GoalDynamic(resultData.Key, 1), false, false);
+                    await Util.WaitForSeconds(0.5);
+                    if (Graph.IsInNeighbours(BotHandler.Farmer.TilePoint,resultData.Key.TilePoint,out _))
+                    {
+                        BotHandler.Bot.Characters.InteractWithCharacter(resultData.Key);
+                    }
+
+                    await HandleRegister(null, 0.1);
+                    return;
+                }
+                
+                FollowingCharacter = true;
+                ActionWindow.Create(Main.GameInstance).AddAction(new StopFollowing(resultData.Key)).Register();
+                while (FollowingCharacter)
+                {
+                    if (Graph.IsInNeighbours(BotHandler.Farmer.TilePoint, resultData.Key.TilePoint, out _, 4)) continue;
+
+                    if (!BotHandler.CurrentLocation.characters.Contains(resultData.Key))
+                    {
+                        Context.Send($"{resultData.Key.displayName} has exited this location, " +
+                                     $"they are now in {resultData.Key.currentLocation.DisplayName}.");
+                        await HandleRegister(resultData.Key);
+                        return;
+                    }
+                    
+                    await BotHandler.Bot.Pathfinding.Goto(new Goal.GoalDynamic(resultData.Key, 1), false, false);
+                }
+
+                // should be registered if this was cancelled by StopFollowed
+                await HandleRegister(FollowingCharacter ? resultData.Key : null);
+            }
+            catch (Exception e)
+            {
+                await TaskDispatcher.SwitchToMainThread();
+                Logger.Error($"There was an issue in FollowCharacter: {e}");
+                RegisterMainActions.BlockRegistering = false;
+                RegisterMainActions.RegisterPostAction();
+            }
+        }
+
+        private static async Task HandleRegister(NPC? unregister = null, double waitTime = 0.25)
+        {
+            if (unregister is not null) NeuroActionHandler.UnregisterActions(new StopFollowing(unregister));
+            FollowingCharacter = false;
+            await Util.WaitForSeconds(waitTime);
+            RegisterMainActions.BlockRegistering = false;
+            RegisterMainActions.RegisterPostAction();
+        }
+    }
+    
+    private class StopFollowing : NeuroAction
+    {
+        private readonly NPC _characterFollowing;
+        public StopFollowing(NPC characterFollowing)
+        {
+            _characterFollowing = characterFollowing;
+        }
+
+        public override string Name => "stop_following_character";
+
+        protected override string Description =>
+            $"This will allow for you to stop following {_characterFollowing.displayName}, if you are current walking" +
+            $" to that character you will still continue to walk to them until you reach them.";
+        protected override JsonSchema Schema => new();
+        protected override ExecutionResult Validate(ActionData actionData)
+        {
+            return ExecutionResult.Success();
+        }
+
+        protected override void Execute()
+        {
+            // Maybe just do CharacterController force stop moving instead of going through current pathfinding?
+            FollowCharacter.FollowingCharacter = false;
         }
     }
 
@@ -312,7 +549,7 @@ public static class PathFindingActions
                 return ExecutionResult.Failure($"You need to provide a monster to attack.");
             }
             
-            NPC monster = Main.Bot._currentLocation.characters.Where(monster => monster.IsMonster)
+            NPC monster = BotHandler.CurrentLocation.characters.Where(monster => monster.IsMonster)
                 .Where(monster => $"{monster.Name}" == monsterName).ToArray()[0];
 
             if (monster is null)
@@ -328,7 +565,7 @@ public static class PathFindingActions
             try
             {
                 if (resultData is null) return;
-                await Main.Bot.Pathfinding.AttackMonster(new Goal.GoalDynamic(resultData, 1),true);
+                await BotHandler.Bot.Pathfinding.AttackMonster(new Goal.GoalDynamic(resultData, 1),true);
                 await TaskDispatcher.SwitchToMainThread();
                 RegisterMainActions.RegisterPostAction();
             }

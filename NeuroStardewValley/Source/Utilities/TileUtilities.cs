@@ -1,6 +1,9 @@
 using Microsoft.Xna.Framework;
+using NeuroStardewValley.Source.ContextStrings;
 using StardewBotFramework.Source.Modules.Pathfinding.Base;
 using StardewValley;
+using StardewValley.Buildings;
+using Object = StardewValley.Object;
 
 namespace NeuroStardewValley.Source.Utilities;
 
@@ -19,8 +22,8 @@ public static class TileUtilities
 
 		if (collisionMap)
 		{
-			Main.Bot.Pathfinding.BuildCollisionMapInRadius(tile,3);
-			if (Main.Bot.Pathfinding.IsBlocked(tile.X, tile.Y) && !destructive)
+			BotHandler.Bot.Pathfinding.BuildCollisionMapInRadius(tile,3);
+			if (BotHandler.Bot.Pathfinding.IsBlocked(tile.X, tile.Y) && !destructive)
 			{
 				reason = "You gave a position that is blocked.";
 				return false;
@@ -70,5 +73,54 @@ public static class TileUtilities
 		}
         
 		return null;
+	}
+
+	public static Object? GetClosestObjectId(string itemId, Vector2 startPoint)
+	{
+		PriorityQueue<Object,int> points = new();
+		foreach (var kvp in TileContext.GetObjectsInLocation(BotHandler.CurrentLocation))
+		{
+			if (kvp.Value is not Object obj || obj.ItemId != itemId) continue;
+			points.Enqueue(obj,(int)Vector2.Distance(startPoint, obj.TileLocation));
+		}
+
+		points.TryDequeue(out Object? element, out _);
+		return element;
+	}
+
+	/// <summary>
+	/// If there is a building at this tile return it, else return null.
+	/// </summary>
+	/// <param name="tile">The tile location</param>
+	public static Building? BuildingContainsTile(Point tile)
+	{
+		return BotHandler.CurrentLocation.getBuildingAt(tile.ToVector2());
+	}
+
+	/// <summary>
+	/// This is the building's top left most tile.
+	/// </summary>
+	public static Point BuildingTile(Building building) => new Point(building.tileX.Value, building.tileY.Value);
+
+	public static bool Actionable(Point tile)
+	{
+		return BotHandler.CurrentLocation.isActionableTile(tile.X, tile.Y, BotHandler.Farmer);
+	}
+
+	public static async Task PathfindToObject(Object obj)
+	{
+		await TaskDispatcher.SwitchToMainThread();
+		Point point = obj.TileLocation.ToPoint();
+		await PathfindToObject(point);
+	}
+
+	public static async Task PathfindToObject(Point tile)
+	{
+		await BotHandler.Bot.Pathfinding.Goto(new Goal.GetToTile(tile.X, tile.Y));
+		await Util.WaitForSeconds(0.1);
+		
+		Graph.IsInNeighbours(BotHandler.Farmer.TilePoint, tile, out var direction, 4);
+		if (direction == -1) return;
+		BotHandler.Bot.Player.ChangeFacingDirection(direction);
 	}
 }

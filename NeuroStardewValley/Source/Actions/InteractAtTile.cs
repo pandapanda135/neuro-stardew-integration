@@ -97,55 +97,53 @@ public class InteractAtTile : NeuroAction<Point>
 				break;
 			// action tile
 			case Point point:
-				string[] action = ArgUtility.SplitBySpace(Main.Bot._currentLocation.doesTileHaveProperty(point.X, point.Y, "Action", "Buildings"));
+				string[] action = ArgUtility.SplitBySpace(BotHandler.CurrentLocation.doesTileHaveProperty(point.X, point.Y, "Action", "Buildings"));
 				Logger.Info($"interacting with action tile: {string.Join(" ", action)}");
-				Main.Bot.ActionTiles.DoActionTile(point);
+				BotHandler.Bot.ActionTiles.DoActionTile(point);
 				break;
 		}
 		
 		// In case whatever is at the tile leads to getting teleported or making menu
-		GameLocation oldLocation = Main.Bot._currentLocation;
+		GameLocation oldLocation = BotHandler.CurrentLocation;
 		IClickableMenu oldMenu = Game1.activeClickableMenu;
 		DelayedAction.functionAfterDelay(() =>
 		{
-			if (!Main.Bot._currentLocation.Equals(oldLocation) || !Game1.activeClickableMenu.Equals(oldMenu)) return;
+			if (!BotHandler.CurrentLocation.Equals(oldLocation) ||
+			    (Game1.activeClickableMenu is not null && !Game1.activeClickableMenu.Equals(oldMenu))) return;
 			RegisterMainActions.RegisterPostAction();
 		}, 1000);
 	}
 	
 	private static object? GetLocationObjects(Point point)
 	{
-		Main.Bot._currentLocation.terrainFeatures.TryGetValue(point.ToVector2(),out var feature);
+		BotHandler.CurrentLocation.terrainFeatures.TryGetValue(point.ToVector2(),out var feature);
 		object? o = null;
 		if (feature is not null) o = feature;
 
-		foreach (var dict in Main.Bot._currentLocation.Objects)
+		foreach (var kvp in BotHandler.CurrentLocation.Objects.Pairs)
 		{
-			foreach (var kvp in dict)
-			{
-				if (!kvp.Value.GetBoundingBox().Contains(point.ToVector2() * 64)) continue;
+			if (!kvp.Value.GetBoundingBox().Contains(point.ToVector2() * 64)) continue;
 				
-				o = kvp.Value;
-			}
+			o = kvp.Value;
 		}
 		
-		foreach (var furniture in Main.Bot._currentLocation.furniture)
+		foreach (var furniture in BotHandler.CurrentLocation.furniture)
 		{
 			if (!furniture.GetBoundingBox().Contains(point.ToVector2() * 64)) continue;
 				
 			o = furniture;
 		}
 		
-		Building build = Main.Bot._currentLocation.buildings.FirstOrDefault(bu => DoesBuildingContainTile(bu,point)
+		Building build = BotHandler.CurrentLocation.buildings.FirstOrDefault(bu => BuildingActionAtTile(bu,point)
 			,new Building());
-		if (Main.Bot._currentLocation.buildings.Contains(build))
+		if (BotHandler.CurrentLocation.buildings.Contains(build))
 		{
 			o = build;
 		}
 		
 		// need to check if object is within boundary of building and is actionable
 		if (ActionTiles.Any(tile => tile != point) && o is not Building ||
-		    (o is Building b && !b.isActionableTile(point.X, point.Y, Main.Bot._farmer)))
+		    (o is Building b && !b.isActionableTile(point.X, point.Y, BotHandler.Farmer)))
 		{
 			o = point;
 		}
@@ -155,14 +153,14 @@ public class InteractAtTile : NeuroAction<Point>
 
 	private bool ObjectValidation(int tileX, int tileY, bool useHeld, out string reason)
 	{
-		if (useHeld && Main.Bot._farmer.ActiveItem is null)
+		if (useHeld && BotHandler.Farmer.ActiveItem is null)
 		{
 			reason = $"You are not holding anything so you cannot use the held item.";
 			return false;
 		}
 
 		Point point = new Point(tileX, tileY);
-		object? obj = TileUtilities.GetTileType(Main.Bot._currentLocation, point);
+		object? obj = TileUtilities.GetTileType(BotHandler.CurrentLocation, point);
 		if (obj is null or Building)
 		{
 			reason = $"There is no object valid at the tile you provided.";
@@ -191,27 +189,27 @@ public class InteractAtTile : NeuroAction<Point>
 		switch (resultData)
 		{
 			case Furniture furniture:
-				Main.Bot.Input.ChangeMousePosition((int)furniture.TileLocation.X,(int)furniture.TileLocation.Y);
-				Main.Bot.Input.SetButton(SButton.MouseLeft,true);
-				furniture.checkForAction(Main.Bot._farmer);
+				BotHandler.Bot.Input.ChangeMousePosition((int)furniture.TileLocation.X,(int)furniture.TileLocation.Y);
+				BotHandler.Bot.Input.SetButton(SButton.MouseLeft,true);
+				furniture.checkForAction(BotHandler.Farmer);
 				break;
 			case Object obj:
 				if (obj.GetMachineData() is not null && (obj.heldObject.Value is null || 
 				                                         (obj.GetMachineData().AllowLoadWhenFull && obj.heldObject.Value is not null)) && _useHeld)
 				{
-					Main.Bot.Player.AddItemToObject(obj, Main.Bot._farmer.ActiveItem);
+					BotHandler.Bot.Player.AddItemToObject(obj, BotHandler.Farmer.ActiveItem);
 					break;
 				}
 
-				Main.Bot.ObjectInteraction.InteractWithObject(obj);
+				BotHandler.Bot.ObjectInteraction.InteractWithObject(obj);
 				break;
 			case TerrainFeature feature:
 				if (_useHeld)
 				{
-					Graph.IsInNeighbours(Main.Bot._farmer.TilePoint, feature.Tile.ToPoint(), out var direction,4);
-					Main.Bot.Tool.UseTool(direction);
+					Graph.IsInNeighbours(BotHandler.Farmer.TilePoint, feature.Tile.ToPoint(), out var direction,4);
+					BotHandler.Bot.Tool.UseTool(direction);
 				}
-				Main.Bot.ObjectInteraction.InteractWithTerrainFeature(feature, feature.Tile);
+				BotHandler.Bot.ObjectInteraction.InteractWithTerrainFeature(feature, feature.Tile);
 				break;
 			default:
 				Logger.Error($"InteractWithObject execute result data was not a valid class");
@@ -219,16 +217,15 @@ public class InteractAtTile : NeuroAction<Point>
 		}
 	}
 
-	private static BuildingActionTile? GetBuildingTile(Building building,Point point)
-	{
-		return building.GetData().ActionTiles.FirstOrDefault(tile => tile.Tile.X + building.tileX.Value == point.X && tile.Tile.Y + building.tileY.Value == point.Y);
-	}
-
+	private static BuildingActionTile? GetBuildingTile(Building building,Point point) => 
+		building.GetData().ActionTiles.FirstOrDefault(tile => tile.Tile.X + building.tileX.Value == point.X &&
+		                                                      tile.Tile.Y + building.tileY.Value == point.Y);
+	
 	private static bool BuildingValidation(int tileX, int tileY, out string reason)
 	{
 		Point point = new Point(tileX, tileY);
-		Building building = Main.Bot._currentLocation.buildings.FirstOrDefault(b => DoesBuildingContainTile(b,point),new Building());
-		if (!Main.Bot._currentLocation.buildings.Contains(building))
+		Building building = BotHandler.CurrentLocation.buildings.FirstOrDefault(b => BuildingActionAtTile(b,point),new Building());
+		if (!BotHandler.CurrentLocation.buildings.Contains(building))
 		{
 			reason = $"There is no building at {tileX},{tileY}";
 			return false;
@@ -266,12 +263,12 @@ public class InteractAtTile : NeuroAction<Point>
 			return;
 		}
 		Logger.Info($"building tile: {buildingTile.Tile}  {buildingTile.Action}");
-		Main.Bot.Building.DoBuildingAction(building, buildingTile.Tile.ToVector2());
+		BotHandler.Bot.Building.DoBuildingAction(building, buildingTile.Tile.ToVector2());
 	}
 
-	private static bool DoesBuildingContainTile(Building building,Point tile)
+	private static bool BuildingActionAtTile(Building building,Point tile)
 	{
-		Point adjustedTile = new Point(tile.X - building.tileX.Value, tile.Y - building.tileY.Value);
+		Point adjustedTile = tile - TileUtilities.BuildingTile(building);
 		List<BuildingActionTile> tiles = building.GetData().ActionTiles
 			.Where(buildingTile => buildingTile.Tile == adjustedTile).ToList();
 		return tiles.Count >= 1;

@@ -30,44 +30,72 @@ public static class RegisterMainActions
 			window.AddAction(new WaitForTime());
 		}
 
-		if (TileContext.GetNameAmountInLocation(Main.Bot._currentLocation).Any())
+		if (BotHandler.Bot.Inventory.Inventory.Any(item => item is not null && item.Category == -74))
+		{
+			window.AddAction(new PlantSeeds());
+		}
+
+		if (CreateItem.GetSchema().Any())
+		{
+			window.AddAction(new CreateItem());
+		}
+
+
+		if (GetQuestItem.GetSchema().Result.Any()) window.AddAction(new GetQuestItem());
+
+		window.AddAction(new ChestActions.TakeItemFromChest()).AddAction(new ChestActions.AddItemToChest());
+		
+		// foreach (var kvp in DataLoader.Shops(Game1.content))
+		// {
+		// 	Logger.Info($"{kvp.Key}  {BotHandler.CurrentLocation.DisplayName == kvp.Key}");
+		// 	foreach (var data in kvp.Value.Owners)
+		// 	{
+		// 		Logger.Info($"data: {data.Condition}    {data.Type}");
+		// 	}
+		// }
+		window.AddAction(new ShopKeeperActions.InteractWithShopkeeper());
+		
+		if (TileContext.GetNameAmountInLocation(BotHandler.CurrentLocation).Any())
 		{
 			window.AddAction(new QueryWorldActions.GetObjectsInRadius())
 				.AddAction(new QueryWorldActions.GetObjectTypeInRadius());
 		}
 		
-		if (Main.Bot._currentLocation.Objects.Any() || TileContext.ActionableTiles.Any() ||
-		    Main.Bot._currentLocation.buildings.Any() || Main.Bot._currentLocation.furniture.Any())
+		if (BotHandler.CurrentLocation.Objects.Any() || TileContext.ActionableTiles.Any() ||
+		    BotHandler.CurrentLocation.buildings.Any() || BotHandler.CurrentLocation.furniture.Any())
 		{
 			window.AddAction(new InteractAtTile());
 		}
 
-		if (Main.Bot._farmer.Items.Any(item => item is not null && item.isPlaceable()))
+		if (BotHandler.Farmer.Items.Any(item => item is not null && item.isPlaceable()))
 		{
 			window.AddAction(new WorldObjectActions.PlaceObjects()).AddAction(new WorldObjectActions.PlaceObject());
 		}
 		
-		if (Main.Bot._currentLocation.characters.Any(monster => monster.IsMonster))
+		if (BotHandler.CurrentLocation.characters.Any(monster => monster.IsMonster))
 		{
 			window.AddAction(new PathFindingActions.AttackMonster());
 		}
 		
-		if (Main.Bot._currentLocation.characters.Any(character => !character.IsMonster))
+		if (BotHandler.CurrentLocation.characters.Any(character => !character.IsMonster))
 		{
-			window.AddAction(new PathFindingActions.InteractCharacter());
+			window.AddAction(new PathFindingActions.FollowCharacter());
 		}
 		
-		if (Main.Bot._farmer.CurrentItem is not null)
+		if (BotHandler.Farmer.CurrentItem is not null)
 		{
 			window.AddAction(new ToolActions.UseItem());
 		}
 
-		if (Main.Bot._farmer.questLog.Any())
+		if (BotHandler.Farmer.questLog.Any())
 		{
 			window.AddAction(new QuestLogActions.OpenLog());
 		}
 
-		if (Main.Bot._farmer.CanEmote()) window.AddAction(new ChatActions.UseEmote());
+		if (BotHandler.Farmer.CanEmote())
+			window.AddAction(new ChatActions.UseEmote()).AddAction(new ChatActions.SendChatMessage());
+
+		if (BotHandler.Bot.Debris.Debris.Any()) window.AddAction(new PickupItems());
 	}
 
 	private static void RegisterToolActions(ActionWindow window, BotWarpedEventArgs? e = null,GameLocation? location = null)
@@ -82,9 +110,9 @@ public static class RegisterMainActions
 				if (Main.Config.UseRange) window.AddAction(new ToolActions.UseToolInRadius());
 				else window.AddAction(new ToolActions.UseToolInRect());
 				
-				if (Main.Bot.Inventory.Inventory.Any(item => item is WateringCan))
+				if (BotHandler.Bot.Inventory.Inventory.Any(item => item is WateringCan))
 				{
-					var wateringCan = Main.Bot.Inventory.Inventory.OfType<WateringCan>().ToList()[0];
+					var wateringCan = BotHandler.Bot.Inventory.Inventory.OfType<WateringCan>().ToList()[0];
 					
 					if ((!wateringCan.isBottomless.Value || wateringCan.WaterLeft < wateringCan.waterCanMax)
 					    && newLocation.waterTiles.waterTiles.Length > 0) 
@@ -95,7 +123,7 @@ public static class RegisterMainActions
 							
 				}
 
-				if (Main.Bot.Inventory.Inventory.Any(item => item is Pickaxe or Axe or MeleeWeapon))
+				if (BotHandler.Bot.Inventory.Inventory.Any(item => item is Pickaxe or Axe or MeleeWeapon))
 				{
 					window.AddAction(new ToolActions.DestroyObject());
 				}
@@ -104,7 +132,7 @@ public static class RegisterMainActions
 			}
 			case Mine:
 			{
-				if (Main.Bot.Inventory.Inventory.Any(item => item.GetType() == typeof(Pickaxe)))
+				if (BotHandler.Bot.Inventory.Inventory.Any(item => item.GetType() == typeof(Pickaxe)))
 				{
 					window.AddAction(new ToolActions.DestroyObject());
 				}
@@ -117,20 +145,17 @@ public static class RegisterMainActions
 	private static void RegisterLocationActions(ActionWindow window,GameLocation location)
 	{
 		bool madeChestAction = false;
-		foreach (var dict in location.Objects)
+		foreach (var kvp in location.Objects.Pairs)
 		{
-			foreach (var kvp in dict)
+			switch (kvp.Value)
 			{
-				switch (kvp.Value)
-				{
-					case Chest:
-						if (!madeChestAction && Game1.activeClickableMenu is null)
-						{
-							window.AddAction(new ChestActions.OpenChest());
-							madeChestAction = true;
-						}
-						break;
-				}
+				case Chest:
+					if (!madeChestAction && Game1.activeClickableMenu is null)
+					{
+						window.AddAction(new ChestActions.OpenChest());
+						madeChestAction = true;
+					}
+					break;
 			}
 		}
 		
@@ -140,7 +165,12 @@ public static class RegisterMainActions
 			case Farm farm:
 				if (farm.buildings.Any(building => building.GetType() == typeof(ShippingBin)))
 				{
-					window.AddAction(new ShippingBinActions.GoToNearestShippingBin());
+					window.AddAction(new UseShippingBin());
+				}
+
+				if (farm.Objects.Values.Any(obj => obj.GetMachineData() != null))
+				{
+					window.AddAction(new UseMachine());
 				}
 
 				break;
@@ -164,9 +194,19 @@ public static class RegisterMainActions
 
 	#endregion
 
+	/// <summary>
+	/// When <see cref="RegisterPostAction"/> is ran next if this is true registering will be blocked then this will be set back to false.
+	/// </summary>
+	public static bool BlockRegistering { get; set; }
 	public static void RegisterPostAction(BotWarpedEventArgs? e = null,int afterSeconds = 0,string query = "",string state = "",bool? ephemeral = null)
 	{
-		if (Main.Bot._farmer.IsSitting())
+		if (BlockRegistering)
+		{
+			BlockRegistering = false;
+			return;
+		}
+		
+		if (BotHandler.Farmer.IsSitting())
 		{
 			var actionWindow = ActionWindow.Create(Main.GameInstance);
 			actionWindow.AddAction(new WorldObjectActions.StopSitting()).Register();
@@ -178,17 +218,17 @@ public static class RegisterMainActions
 		Logger.Info($"register actions again.");
 		ActionWindow window = ActionWindow.Create(Main.GameInstance);
 		RegisterActions(window);
-		RegisterToolActions(window,e,Main.Bot._currentLocation);
-		RegisterLocationActions(window,Main.Bot._currentLocation);
+		RegisterToolActions(window,e,BotHandler.CurrentLocation);
+		RegisterLocationActions(window,BotHandler.CurrentLocation);
 		if (afterSeconds != 0 || query == "" || state == "" || ephemeral != null)
 		{
 			if (query == "")
 			{
 				query =
-					$"You are at the tile {Main.Bot.Player.BotTilePosition()} facing {PlayerContext.DirectionNames[Main.Bot.Player.FacingDirection].ToLower()}," +
+					$"You are at the tile {BotHandler.Bot.Player.BotTilePosition()} facing {PlayerContext.DirectionNames[BotHandler.Bot.Player.FacingDirection].ToLower()}," +
 					$" if you are unsure about what's around you in the world, you should use the query actions to learn more." +
-					$" The current weather is {Main.Bot.WorldState.GetCurrentLocationWeather().Weather}." +
-					$" These are the items in your inventory: {InventoryContext.GetInventoryString(Main.Bot.Inventory.Inventory, true)}";
+					$" The current weather is {BotHandler.Bot.WorldState.GetCurrentLocationWeather().Weather}." +
+					$" These are the items in your inventory: {InventoryContext.GetInventoryString(BotHandler.Bot.Inventory.Inventory, true)}";
 			}
 			if (state == "")
 			{
@@ -202,7 +242,7 @@ public static class RegisterMainActions
 	private const string ObjectPrefix = "These are the objects around you: {0}{1}";
 	private static string GetSeparatedState()
 	{
-		var objects = TileContext.GetObjectsInLocation(Main.Bot._currentLocation);
+		var objects = TileContext.GetObjectsInLocation(BotHandler.CurrentLocation);
 		Dictionary<string,int> nameAmount = TileContext.GetNameAmountInLocation(objects);
 		string context = "";
 		string building = "";

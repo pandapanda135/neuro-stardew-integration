@@ -11,34 +11,36 @@ public static class ChatActions
 {
     public class SendChatMessage : NeuroAction<List<string>>
     {
-        private string[] Action => new[] { "Public", "Private","No reply" };
+        private static string[] Action => new[] { "Public", "Private" };
         
-        private string[] GetOtherPlayers()
+        private static string[] GetOtherPlayers() => Game1.otherFarmers.Values.Select(farmer => farmer.Name).ToArray();
+        
+        public override string Name => "talk_in_game_chat";
+        protected override string Description => "This will allow for you to talk in the game's chat.";
+        protected override JsonSchema Schema
         {
-            string[] names = new string[Game1.otherFarmers.Count];
-            foreach (var kvp in Game1.otherFarmers)
+            get
             {
-                names[kvp.Key] = kvp.Value.Name;
-            }
+                JsonSchema s =  new()
+                {
+                    Type = JsonSchemaType.Object,
+                    Required = new List<string> { "message" },
+                    Properties = new Dictionary<string, JsonSchema>
+                    {
+                        ["message"] = QJS.Type(JsonSchemaType.String),
+                    }
+                };
 
-            return names;
+                if (!GetOtherPlayers().Any()) return s;
+                
+                s.Required.Add("action");
+                s.Properties.TryAdd("action", QJS.Enum(Action));
+                s.Properties.TryAdd("private_player_name",QJS.Enum(GetOtherPlayers()));
+
+                return s;
+            }
         }
-        
-        public override string Name => "reply_to_chat";
-        protected override string Description => "This allows you to reply to the last chat, if you do not want to reply you should send No reply";
 
-        protected override JsonSchema Schema => new()
-        {
-            Type = JsonSchemaType.Object,
-            Required = new List<string> { "action","message" },
-            Properties = new Dictionary<string, JsonSchema>
-            {
-                ["action"] = QJS.Enum(Action),
-                ["message"] = QJS.Type(JsonSchemaType.String),
-                ["private_player_name"] = QJS.Enum(GetOtherPlayers())
-            }
-        };
-        
         protected override ExecutionResult Validate(ActionData actionData, out List<string>? resultData)
         {
             string? action = actionData.Data?.Value<string>("action");
@@ -46,52 +48,70 @@ public static class ChatActions
             string? playerName = actionData.Data?.Value<string>("private_player_name");
             resultData = new ();
 
-            if (action is null || message is null || playerName is null && action == "Private")
+            if (message is null || (GetOtherPlayers().Any() && action is not null && action == "Private" && playerName is null))
             {
-                return ExecutionResult.Failure("A parameter was not set correctly");
+                return ExecutionResult.Failure("A parameter was not set correctly.");
             }
 
-            if (action == "No reply")
+            if (action is not null && !Action.Contains(action))
             {
-                resultData[0] = "";
-                return ExecutionResult.Success("Nothing was sent in chat.");
+                return ExecutionResult.Failure($"{action} is not a valid action.");
+            }
+            
+            if (action is null && playerName is null)
+            {
+                resultData.Add(message);
+                return ExecutionResult.Success($"You have sent {message} in chat.");    
+            }
+            
+            if (action is null)
+            {
+                return ExecutionResult.Failure($"You must provide a value for action.");
+            }
+            
+            // if private and player doesn't exist
+            if (action == Action[1] && (playerName is null || !GetOtherPlayers().Contains(playerName)))
+            {
+                return ExecutionResult.Failure($"{playerName} is not a valid player name.");
             }
 
-            if (!Action.Contains(action))
+            // this shouldn't really affect anything but might as well check
+            if (action == Action[0] && !string.IsNullOrEmpty(playerName))
             {
-                return ExecutionResult.Failure($"{action} is not a valid action");
+                return ExecutionResult.Failure($"If you want to send a public message you cannot provide a player name.");
             }
-
-            if (!GetOtherPlayers().Contains(playerName))
-            {
-                return ExecutionResult.Failure($"{playerName} is not a valid player");
-            }
-
-            if (playerName is null)
-            {
-                return ExecutionResult.Failure($"{playerName} was not valid");
-            }
+            
             resultData.Add(action);
             resultData.Add(message);
-            resultData.Add(playerName);
+            if (playerName is not null) resultData.Add(playerName);
 
-            var successString = $"You have sent {message} in {action} chat";
-            if (action == "Private") successString += $" to {playerName}";
+            var successString = $"You have sent {message} in {action} chat.";
+            if (action == "Private") successString += $" to {playerName}.";
             return ExecutionResult.Success(successString);
         }
 
         protected override void Execute(List<string>? resultData)
         {
             if (resultData is null) return;
+
+            if (resultData.Count <= 1)
+            {
+                BotHandler.Bot.Chat.SendPublicMessage(resultData[0]);
+                RegisterMainActions.RegisterPostAction();
+                return;
+            }
             
-            if (resultData[0] == "Private")
+            switch (resultData[0])
             {
-                Main.Bot.Chat.SendPrivateMessage(resultData[2],resultData[1]);
+                case "Private":
+                    BotHandler.Bot.Chat.SendPrivateMessage(resultData[2],resultData[1]);
+                    break;
+                case "Public":
+                    BotHandler.Bot.Chat.SendPublicMessage(resultData[1]);
+                    break;
             }
-            else if (resultData[0] == "Public")
-            {
-                Main.Bot.Chat.SendPublicMessage(resultData[1]);
-            }
+            
+            RegisterMainActions.RegisterPostAction();
         }
     }
 
@@ -106,7 +126,7 @@ public static class ChatActions
             Properties = new Dictionary<string, JsonSchema>
             {
                 ["emote"] = QJS.Enum(Farmer.EMOTES.Where(emoteType =>
-                    !emoteType.hidden || Main.Bot._farmer.performedEmotes.ContainsKey(emoteType.emoteString))
+                    !emoteType.hidden || BotHandler.Farmer.performedEmotes.ContainsKey(emoteType.emoteString))
                     .Select(emote => emote.displayName))
             }
         };
@@ -133,7 +153,7 @@ public static class ChatActions
         protected override void Execute(string? resultData)
         {
             var emote = Farmer.EMOTES.Where(emote => emote.displayName == resultData).ToArray()[0];
-            Main.Bot.Chat.UseEmote(emote.emoteString);
+            BotHandler.Bot.Chat.UseEmote(emote.emoteString);
             
             DelayedAction.functionAfterDelay(() => RegisterMainActions.RegisterPostAction(), 2000);
         }

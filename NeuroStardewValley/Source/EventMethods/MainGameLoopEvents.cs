@@ -26,14 +26,14 @@ public static class MainGameLoopEvents
 	{
 		TileContext.ActionableTiles.Clear();
 		AlgorithmBase.IPathing.CollisionMap.Clear();
-		AlgorithmBase.IPathing pathing = new AStar.Pathing();
-		pathing.BuildCollisionMap(Main.Bot._currentLocation);
+		BotHandler.Bot.Pathfinding.BuildCollisionMap();
 
 		if (e.Player.passedOut || Game1.eventUp) return;
-		string warps = TileContext.GetWarpTiles(e.NewLocation,true);
+		string warps = TileContext.GetWarpTiles(e.NewLocation, true , true , true);
+		Logger.Warning($"warps: {warps}");
 		string warpsString = !string.IsNullOrEmpty(warps) ? TileContext.GetWarpTilesString(warps) : "There are no warps in this location";
 		
-		string characterContext = string.Concat(Main.Bot.Characters.GetCharactersInCurrentLocation(e.NewLocation)
+		string characterContext = string.Concat(BotHandler.Bot.Characters.GetCharactersInCurrentLocation(e.NewLocation)
 			.Select(kvp => $"\n{kvp.Value.displayName} is at {kvp.Key}").ToList());
 
 		characterContext = characterContext.Length < 1
@@ -43,13 +43,17 @@ public static class MainGameLoopEvents
 		warpsString = warpsString.Length < 1
 			? $"There are no warps in {e.NewLocation.DisplayName} as of when you entered it"
 			: $"These are the warps to other places in {e.NewLocation.DisplayName} when you entered it: {warpsString}";
+
+		string buildingString =
+			BotHandler.CurrentLocation.buildings.Any(building => building.HasIndoors())
+				? $"These are the buildings and animals in them: {string.Join("\n",StringUtilities.GetAnimalsPerBuilding())}" : "";
 		
-		Context.Send($"{warpsString}\n{characterContext}", true);
+		Context.Send($"{warpsString}\n{characterContext}{(buildingString.Any() ? $"\n{buildingString}" : "")}", true);
 		string query =
-			$"You are at the tile {Main.Bot.Player.BotTilePosition()} facing {PlayerContext.DirectionNames[Main.Bot.Player.FacingDirection].ToLower()}," +
+			$"You are at the tile {BotHandler.Bot.Player.BotTilePosition()} facing {PlayerContext.DirectionNames[BotHandler.Bot.Player.FacingDirection].ToLower()}," +
 			$" if you are unsure about what's around you in the world, you should use the query actions to learn more." +
-			$"You are at {e.NewLocation.DisplayName} from {e.OldLocation.DisplayName}, The current weather is {Main.Bot.WorldState.GetCurrentLocationWeather().Weather}." +
-			$" These are the items in your inventory: {InventoryContext.GetInventoryString(Main.Bot._farmer.Items, true)} " +
+			$"You are at {e.NewLocation.DisplayName} from {e.OldLocation.DisplayName}, The current weather is {BotHandler.Bot.WorldState.GetCurrentLocationWeather().Weather}." +
+			$" These are the items in your inventory: {InventoryContext.GetInventoryString(BotHandler.Farmer.Items, true)} " +
 			$"\nIf you want more information about your items should open your inventory."; 
 		RegisterMainActions.RegisterPostAction(e, 0, query);
 	}
@@ -67,21 +71,27 @@ public static class MainGameLoopEvents
 				if (!Game1.fadeToBlack) break; // in case says no to going to sleep
 				return;
 			case DialogueBox when e.NewMenu is not DialogueBox:
-				Main.Bot.Dialogue.CurrentDialogueBox = null;
+				BotHandler.Bot.Dialogue.CurrentDialogueBox = null;
 				break;
 			case LevelUpMenu: // lower thing doesn't work, and I'm too lazy to find out why
 				return;
 		}
 
+		if (RegisterMainActions.BlockRegistering)
+		{
+			RegisterMainActions.BlockRegistering = false;
+			return;
+		}
+
 		switch (e.NewMenu)
 		{
 			case CharacterCustomization customization:
-				Main.Bot.CharacterCreation.SetCreator(customization);
+				BotHandler.Bot.CharacterCreation.SetCreator(customization);
 				MainMenuActions.RegisterAction();
 				break;
 			case DialogueBox dialogueBox:
 				Logger.Info($"add new dialogue box");
-				Main.Bot.Dialogue.CurrentDialogueBox = dialogueBox;
+				BotHandler.Bot.Dialogue.CurrentDialogueBox = dialogueBox;
 				RegisterDialogueActions.RegisterActions();
 				break;
 			case GameMenu menu:
@@ -96,44 +106,44 @@ public static class MainGameLoopEvents
 				}
 				break;
 			case ShopMenu shopMenu:
-				Main.Bot.Shop.OpenShop(shopMenu); // this should also be handled by OpenShopUi
+				BotHandler.Bot.Shop.OpenShop(shopMenu); // this should also be handled by OpenShopUi
 				RegisterStoreActions.RegisterDefaultShop();
 				break;
 			case CarpenterMenu carpenterMenu:
-				Main.Bot.FarmBuilding.SetCarpenterUi(carpenterMenu);
+				BotHandler.Bot.FarmBuilding.SetCarpenterUi(carpenterMenu);
 				RegisterStoreActions.RegisterCarpenterActions();
 				break;
 			case GeodeMenu geodeMenu:
-				Main.Bot.Blacksmith.OpenGeodeMenu(geodeMenu);
+				BotHandler.Bot.Blacksmith.OpenGeodeMenu(geodeMenu);
 				RegisterStoreActions.RegisterBlacksmithActions();
 				break;
 			case LevelUpMenu levelUpMenu:
-				Main.Bot.EndDaySkillMenu.SetMenu(levelUpMenu);
+				BotHandler.Bot.EndDaySkillMenu.SetMenu(levelUpMenu);
 				RegisterLevelUpMenu.GetSkillContext();
 				break;
 			case ShippingMenu shippingMenu:
-				Main.Bot.EndDayShippingMenu.SetMenu(shippingMenu);
+				BotHandler.Bot.EndDayShippingMenu.SetMenu(shippingMenu);
 				break;
 			case ItemGrabMenu itemGrabMenu:
 				switch (itemGrabMenu.context)
 				{
 					case Chest chest:
-						Main.Bot.ItemGrabMenu.SetUI(itemGrabMenu);
-						Main.Bot.Chest.SetChest(chest);
+						BotHandler.Bot.ItemGrabMenu.SetUI(itemGrabMenu);
+						BotHandler.Bot.Chest.SetChest(chest);
 						ChestActions.Chest = chest;
 						ChestActions.RegisterChestActions();
 						return;
 					case ShippingBin:
-						Main.Bot.ShippingBinInteraction.SetUI(itemGrabMenu);
+						BotHandler.Bot.ShippingBinInteraction.SetUI(itemGrabMenu);
 						ShippingBinActions.RegisterBinActions();
 						return;
 				}
 
-				Main.Bot.ItemGrabMenu.SetUI(itemGrabMenu);
+				BotHandler.Bot.ItemGrabMenu.SetUI(itemGrabMenu);
 				ItemGrabActions.RegisterActions(itemGrabMenu);
 				break;
 			case Billboard billboard:
-				Main.Bot.BillBoard.SetMenu(billboard);
+				BotHandler.Bot.BillBoard.SetMenu(billboard);
 				if (billboard.acceptQuestButton.visible)
 				{
 					BillBoardInteraction.RegisterQuestActions();
@@ -142,11 +152,11 @@ public static class MainGameLoopEvents
 				{
 					Context.Send($"These are the event that are happening this season, {BillBoardInteraction.GetCalendarContext()}" +
 					             $"\nThere are: {billboard.calendarDays.Count} days in this season. It is currently day {SDate.Now().Day} of {SDate.Now().Season}.");
-					DelayedAction.functionAfterDelay(() => Main.Bot.BillBoard.RemoveMenu(), 6500);
+					DelayedAction.functionAfterDelay(() => BotHandler.Bot.BillBoard.RemoveMenu(), 6500);
 				}
 				break;
 			case LetterViewerMenu letterViewerMenu:
-				Main.Bot.LetterViewer.SetMenu(letterViewerMenu);
+				BotHandler.Bot.LetterViewer.SetMenu(letterViewerMenu);
 				
 				if (letterViewerMenu.HasQuestOrSpecialOrder || letterViewerMenu.itemsLeftToGrab())
 				{
@@ -154,55 +164,55 @@ public static class MainGameLoopEvents
 				}
 				else
 				{
-					int waitTime = 9000 * Main.Bot.LetterViewer.GetMessage().Count;
-					for (int i = 0; i < Main.Bot.LetterViewer.GetMessage().Count; i++)
+					int waitTime = 9000 * BotHandler.Bot.LetterViewer.GetMessage().Count;
+					for (int i = 0; i < BotHandler.Bot.LetterViewer.GetMessage().Count; i++)
 					{
 						int j = i;
 						// ugly, but it works, sorry.
 						Task.Run(async () =>
 						{
 							await TaskDispatcher.SwitchToMainThread();
-							Logger.Info($"{Main.Bot.LetterViewer.GetMessage().Count}");
-							string message = LetterContext.GetStringContext(Main.Bot.LetterViewer.GetMessage()[j],
-								j == Main.Bot.LetterViewer.GetMessage().Count - 1, j); // only send extra on last page
+							Logger.Info($"{BotHandler.Bot.LetterViewer.GetMessage().Count}");
+							string message = LetterContext.GetStringContext(BotHandler.Bot.LetterViewer.GetMessage()[j],
+								j == BotHandler.Bot.LetterViewer.GetMessage().Count - 1, j); // only send extra on last page
 							Context.Send($"{message}");
 
-							await Task.Delay(9000);
-							await TaskDispatcher.SwitchToMainThread();
-							if (j != Main.Bot.LetterViewer.GetMessage().Count - 1)
+							await Util.WaitForSeconds(9);
+							if (j != BotHandler.Bot.LetterViewer.GetMessage().Count - 1)
 							{
-								Main.Bot.LetterViewer.NextPage();
+								BotHandler.Bot.LetterViewer.NextPage();
 							}
 						});
 					}
 
 					// this gets ran after all the tasks are set up
-					DelayedAction.functionAfterDelay(() => Main.Bot.LetterViewer.ClickCloseButton(), waitTime + 9000);
+					DelayedAction.functionAfterDelay(() => BotHandler.Bot.LetterViewer.ClickCloseButton(), waitTime + 9000);
 				}
 
 				break;
 			case JunimoNoteMenu junimoNoteMenu:
-				Main.Bot.JunimoNote.SetMenu(junimoNoteMenu);
+				BotHandler.Bot.JunimoNote.SetMenu(junimoNoteMenu);
 				JunimoNoteActions.RegisterActions();
 				break;
 			case PurchaseAnimalsMenu animalsMenu:
-				Main.Bot.AnimalMenu.SetUI(animalsMenu);
+				BotHandler.Bot.AnimalMenu.SetUI(animalsMenu);
 				BuyAnimalsActions.RegisterActions();
 				break;
 			case ItemListMenu itemListMenu:
-				Main.Bot.ItemListMenu.SetMenu(itemListMenu);
+				BotHandler.Bot.ItemListMenu.SetMenu(itemListMenu);
 				ItemListMenuActions.RegisterActions();
 				break;
 			case MineElevatorMenu mineElevatorMenu:
-				Main.Bot.ElevatorMenu.SetMenu(mineElevatorMenu);
+				BotHandler.Bot.ElevatorMenu.SetMenu(mineElevatorMenu);
+				// I'm pretty sure the elevator can only be used if there are valid buttons 
 				ElevatorMenuActions.RegisterAction();
 				break;
 			case NamingMenu namingMenu: // works for naming horses and placing signs
-				Main.Bot.NamingMenu.setUI(namingMenu);
+				BotHandler.Bot.NamingMenu.setUI(namingMenu);
 				NamingMenuActions.RegisterActions();
 				break;
 			case QuestLog questLog:
-				Main.Bot.QuestLog.SetMenu(questLog);
+				BotHandler.Bot.QuestLog.SetMenu(questLog);
 				QuestLogActions.RegisterActions();
 				break;
 			default:
@@ -211,7 +221,11 @@ public static class MainGameLoopEvents
 				e.NewMenu.exitThisMenu(false);
 				break;
 		}
-		
+
+		if (e.NewMenu is TitleMenu && e.OldMenu is not TitleMenu)
+		{
+			Main.MainMenuAutomation = new();
+		}
 		// ugly but it gets rid of warning and double send at start of game and other double sends
 		if (e.NewMenu is not null || e.OldMenu is MineElevatorMenu || e.OldMenu is TitleMenu || e.OldMenu is LevelUpMenu) return;
 		
@@ -240,12 +254,29 @@ public static class MainGameLoopEvents
 
 	#region ContextEvents
 
-	public static void OnDayStarted(object? sender, BotDayStartedEventArgs e)
+	public static async void OnDayStarted(object? sender, BotDayStartedEventArgs e)
 	{
-		Context.Send(NewDayContext());
-		AlgorithmBase.IPathing pathing = new AStar.Pathing();
-		// stop ugly stuttering
-		pathing.BuildCollisionMap(Main.Bot._currentLocation);
+		try
+		{
+			await TaskDispatcher.SwitchToMainThread();
+			Context.Send(NewDayContext());
+			// should stop stuttering when pathfinding for the first time as collisions take the most time.
+			AlgorithmBase.IPathing pathing = new AStar.Pathing();
+			pathing.BuildCollisionMap(BotHandler.CurrentLocation);
+			
+			// foreach (var quest in BotHandler.Bot.QuestLog.Quests)
+			// {
+			// 	quest.questComplete();
+			// }
+			
+			// we check if any quests are complete in here
+			await QuestContext.GetQuestsRewards();
+		}
+		catch (Exception exception)
+		{
+			await TaskDispatcher.SwitchToMainThread();
+			Logger.Error($"{exception}");
+		}
 	}
 
 	public static void OnDayEnded(object? sender, BotDayEndedEventArgs e)
@@ -263,7 +294,7 @@ public static class MainGameLoopEvents
 	
 	public static void OnBotDamaged(object? sender, BotDamagedEventArgs e)
 	{
-		Context.Send($"You were damaged by {e.Damager.Name}, they did {e.Damaged} damage. You now have {Main.Bot.PlayerInformation.Health} health left.");
+		Context.Send($"You were damaged by {e.Damager.Name}, they did {e.Damaged} damage. You now have {BotHandler.Bot.PlayerInformation.Health} health left.");
 	}
 	
 	public static void LocationNpcChanged(object? sender, BotCharacterListChangedEventArgs e)
@@ -297,29 +328,29 @@ public static class MainGameLoopEvents
 			int sell = item.sellToStorePrice();
 			shipString = string.Concat(shipString, $"\n{item.Name}: total sell price: {sell * item.Stack} single sell price: {sell}");
 		}
-		await Task.Delay(soldItems.Count * 750);
+		await Util.WaitForSeconds(soldItems.Count * 0.75);
 		Context.Send(shipString);
-		Main.Bot.EndDayShippingMenu.AdvanceToNextDay();
+		BotHandler.Bot.EndDayShippingMenu.AdvanceToNextDay();
 	}
 
-	public static string NewDayContext(bool sendQuests = true)
+	private static string NewDayContext(bool sendQuests = true)
 	{
 		string time = StringUtilities.FormatTimeString();
 		if (sendQuests) Context.Send($"These are the title's of the quests that are available, " +
 		                             $"you can see more about them in your quest log.{QuestContext.GetQuestTitles()}");
-		Main.Bot.Time.GetTodayFestivalData(out _, out _, out int startTime, out int endTime);
+		BotHandler.Bot.Time.GetTodayFestivalData(out _, out _, out int startTime, out int endTime);
 		string passedOut = Game1.player.passedOut
 			? "A new day has started, you are in your farm-house after you passed out, "
 			: "A new day has started, you are in your farm-house,"; 
 		string contextString = $"{passedOut} the current day is {SDate.Now().DayOfWeek} {SDate.Now().Day} of {SDate.Now().Season} in year {SDate.Now().Year} at time: {time}.";
 		
-		if (Main.Bot.Time.IsFestival())
+		if (BotHandler.Bot.Time.IsFestival())
 		{
 			contextString += $" There is a festival today! It is located at {Game1.whereIsTodaysFest}, it will start at {startTime} and end at {endTime}," +
 			                $" but you should try to go there as soon as possible so you can fully experience it.";
 		}
 
-		if (Main.Bot._farmer.mailbox.Any())
+		if (BotHandler.Farmer.mailbox.Any())
 		{
 			contextString += $" There is some mail in your mailbox!";
 		}
